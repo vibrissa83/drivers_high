@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>모바일 레이싱 게임</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            overflow: hidden;
+            background: #1a1a2e;
+            font-family: 'Arial', sans-serif;
+            touch-action: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        #gameCanvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            touch-action: none;
+        }
+
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            pointer-events: none;
+            color: white;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+
+        .ui-panel {
+            padding: 12px 18px;
+            background: rgba(0, 0, 0, 0.55);
+            border-radius: 12px;
+            margin: 10px;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        #topLeft {
+            position: absolute;
+            top: 0;
+            left: 0;
+            font-size: 18px;
+            line-height: 1.5;
+        }
+
+        #topRight {
+            position: absolute;
+            top: 0;
+            right: 0;
+            font-size: 18px;
+            text-align: right;
+            line-height: 1.5;
+        }
+
+        #boosterInfo {
+            position: absolute;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 22px;
+            text-align: center;
+            padding: 14px 28px;
+            border-radius: 16px;
+            background: rgba(0, 0, 0, 0.75);
+            border: 3px solid transparent;
+            transition: border-color 0.3s ease, color 0.3s ease;
+            white-space: nowrap;
+            backdrop-filter: blur(6px);
+        }
+
+        .booster-level-0 {
+            display: none !important;
+        }
+
+        .booster-level-1 {
+            display: block;
+            border-color: #4CAF50 !important;
+            color: #4CAF50 !important;
+        }
+
+        .booster-level-2 {
+            display: block;
+            border-color: #FF9800 !important;
+            color: #FF9800 !important;
+        }
+
+        .booster-level-3 {
+            display: block;
+            border-color: #F44336 !important;
+            color: #F44336 !important;
+            animation: pulse 0.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: translateX(-50%) scale(1); }
+            50%       { transform: translateX(-50%) scale(1.06); }
+        }
+
+        /* ── 시작 화면 ── */
+        #startScreen {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: linear-gradient(160deg, #0f0c29, #302b63, #24243e);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            pointer-events: auto;
+            z-index: 10;
+        }
+
+        #startScreen h1 {
+            font-size: 42px;
+            color: #fff;
+            text-shadow: 0 0 30px #00aaff, 0 0 60px #00aaff88;
+            letter-spacing: 2px;
+            text-align: center;
+        }
+
+        #startScreen .subtitle {
+            font-size: 16px;
+            color: #aac;
+            text-align: center;
+            max-width: 320px;
+            line-height: 1.6;
+        }
+
+        .action-btn {
+            margin-top: 10px;
+            padding: 16px 52px;
+            font-size: 22px;
+            background: linear-gradient(135deg, #00aaff, #0055cc);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 24px rgba(0,170,255,0.45);
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+
+        .action-btn:active {
+            transform: scale(0.95);
+            box-shadow: 0 2px 12px rgba(0,170,255,0.3);
+        }
+
+        .how-to {
+            display: flex;
+            gap: 24px;
+            margin-top: 4px;
+        }
+
+        .how-item {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-size: 13px;
+            color: #cce;
+            text-align: center;
+            line-height: 1.5;
+        }
+
+        .how-item .icon { font-size: 26px; display: block; margin-bottom: 4px; }
+
+        /* ── 게임 오버 ── */
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.92);
+            padding: 40px 48px;
+            border-radius: 24px;
+            text-align: center;
+            display: none;
+            pointer-events: auto;
+            z-index: 10;
+            border: 2px solid rgba(255,255,255,0.12);
+            backdrop-filter: blur(10px);
+            min-width: 280px;
+        }
+
+        #gameOver h1 {
+            font-size: 36px;
+            margin-bottom: 20px;
+            color: #ff4444;
+            text-shadow: 0 0 20px #ff444488;
+        }
+
+        #gameOver .stat-row {
+            font-size: 20px;
+            margin: 10px 0;
+            color: #dde;
+        }
+
+        #gameOver .stat-row span {
+            color: #fff;
+            font-size: 22px;
+        }
+
+        #gameOver .new-best {
+            font-size: 15px;
+            color: #FFD700;
+            margin-top: 6px;
+            display: none;
+        }
+
+        .restart-btn {
+            margin-top: 28px;
+            padding: 14px 44px;
+            font-size: 22px;
+            background: linear-gradient(135deg, #4CAF50, #2e7d32);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 4px 20px rgba(76,175,80,0.45);
+            transition: transform 0.15s;
+        }
+
+        .restart-btn:active { transform: scale(0.95); }
+
+        /* ── 일시정지 버튼 ── */
+        #pauseBtn {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+            z-index: 5;
+            backdrop-filter: blur(4px);
+        }
+
+        /* ── 일시정지 오버레이 ── */
+        #pauseOverlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.65);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 20px;
+            z-index: 9;
+            pointer-events: auto;
+            backdrop-filter: blur(4px);
+        }
+
+        #pauseOverlay h2 {
+            font-size: 36px;
+            color: #fff;
+            letter-spacing: 3px;
+        }
+
+        /* ── 콤보 표시 ── */
+        #comboDisplay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            font-size: 32px;
+            font-weight: bold;
+            color: #FFD700;
+            text-shadow: 0 0 20px #FFD700;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 6;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ═══════════ START SCREEN ═══════════ -->
+<div id="startScreen">
+    <h1>🏎️ 레이싱<br>게임</h1>
+    <p class="subtitle">장애물을 피하고 부스터를 모아<br>최고 점수를 달성하세요!</p>
+
+    <div class="how-to">
+        <div class="how-item">
+            <span class="icon">👆</span>
+            터치 &amp; 드래그<br>좌우 이동
+        </div>
+        <div class="how-item">
+            <span class="icon">⭐</span>
+            별 아이템<br>부스터 충전
+        </div>
+        <div class="how-item">
+            <span class="icon">🚗</span>
+            빨간 차<br>충돌 금지
+        </div>
+    </div>
+
+    <button class="action-btn" id="startBtn">게임 시작!</button>
+
+    <div style="font-size:13px; color:#778; margin-top:8px;">
+        최고 기록: <span id="bestScoreDisplay">0</span>점
+    </div>
+</div>
+
+<!-- ═══════════ CANVAS ═══════════ -->
+<canvas id="gameCanvas"></canvas>
+
+<!-- ═══════════ HUD ═══════════ -->
+<div id="ui">
+    <div id="topLeft" class="ui-panel">
+        <div>점수: <span id="score">0</span></div>
+        <div>거리: <span id="distance">0</span>m</div>
+    </div>
+    <div id="topRight" class="ui-panel">
+        <div>속도: <span id="speed">0</span></div>
+        <div style="font-size:14px; color:#aac;">최고: <span id="bestScore">0</span></div>
+    </div>
+    <button id="pauseBtn">⏸</button>
+    <div id="boosterInfo" class="booster-level-0">
+        <div>⚡ 부스터 LV.<span id="boosterLevel">0</span></div>
+        <div style="font-size:16px; margin-top:4px;">
+            <span id="boosterBar"></span> <span id="boosterTime">0.0</span>s
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════ COMBO ═══════════ -->
+<div id="comboDisplay"></div>
+
+<!-- ═══════════ PAUSE ═══════════ -->
+<div id="pauseOverlay">
+    <h2>⏸ 일시정지</h2>
+    <button class="action-btn" id="resumeBtn">계속하기</button>
+    <button class="action-btn" style="background:linear-gradient(135deg,#555,#333); box-shadow:none;" id="quitBtn">처음으로</button>
+</div>
+
+<!-- ═══════════ GAME OVER ═══════════ -->
+<div id="gameOver">
+    <h1>게임 오버!</h1>
+    <div class="stat-row">최종 점수: <span id="finalScore">0</span></div>
+    <div class="stat-row">주행 거리: <span id="finalDistance">0</span>m</div>
+    <div class="stat-row">최고 콤보: <span id="finalCombo">0</span></div>
+    <div class="new-best" id="newBestBadge">🏆 새 최고 기록!</div>
+    <button class="restart-btn" id="restartBtn">다시 시작</button>
+    <br>
+    <button class="action-btn" style="margin-top:12px; background:linear-gradient(135deg,#555,#333); box-shadow:none; font-size:16px; padding:10px 28px;" id="homeBtn">처음으로</button>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+//  CANVAS SETUP
+// ══════════════════════════════════════════════
+const canvas = document.getElementById('gameCanvas');
+const ctx    = canvas.getContext('2d');
+
+function resizeCanvas() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+    // 도로 너비 재계산
+    road.width    = Math.min(canvas.width * 0.72, 420);
+}
+window.addEventListener('resize', () => { resizeCanvas(); });
+
+// ══════════════════════════════════════════════
+//  CONSTANTS / CONFIG
+// ══════════════════════════════════════════════
+const CFG = {
+    baseSpeed:           5,
+    maxSpeed:            18,
+    acceleration:        0.18,
+    offRoadDecel:        0.55,
+    playerEasing:        0.14,
+    obstacleBase:        3,
+    obstacleRandExtra:   2.5,
+    obstacleInterval:    1400,  // ms
+    itemInterval:        2800,  // ms
+    boosterDuration:     5000,  // ms
+    boosterMultipliers:  [1.0, 1.5, 2.0, 2.5],
+    diffRampInterval:    15000, // ms – 15초마다 난이도 증가
+    diffRampAmount:      0.15,  // 장애물 속도 보너스
+    laneCount:           3,
+    scrollSegmentH:      80,    // 차선 대시 높기
+};
+
+// ══════════════════════════════════════════════
+//  ROAD
+// ══════════════════════════════════════════════
+const road = {
+    width:       300,
+    grassColor:  '#2d6a2d',
+    asphalt:     '#2c2c2c',
+    lineColor:   '#e8cc00',
+    borderColor: '#f0f0f0',
+    get leftEdge()  { return (canvas.width  - this.width) / 2; },
+    get rightEdge() { return this.leftEdge  + this.width;      },
+    laneWidth()     { return this.width / CFG.laneCount;       },
+    scrollY:     0,  // 도로 스크롤 오프셋
+};
+
+// ══════════════════════════════════════════════
+//  GAME STATE
+// ══════════════════════════════════════════════
+const game = {
+    isRunning:  false,
+    isPaused:   false,
+    isOver:     false,
+    score:      0,
+    distance:   0,
+    bestScore:  parseInt(localStorage.getItem('bestScore') || '0'),
+    combo:      0,
+    maxCombo:   0,
+    diffBonus:  0,   // 난이도 보너스 (시간에 따라 증가)
+    startTime:  0,
+    lastDiffRamp: 0,
+};
+
+// ══════════════════════════════════════════════
+//  PLAYER
+// ══════════════════════════════════════════════
+const player = {
+    width:    42,
+    height:   66,
+    x:        0,
+    y:        0,
+    speed:    0,
+    targetX:  0,
+    reset() {
+        this.x       = canvas.width / 2 - this.width / 2;
+        this.y       = canvas.height - 160;
+        this.speed   = 0;
+        this.targetX = canvas.width / 2 - this.width / 2;
+    },
+};
+
+// ══════════════════════════════════════════════
+//  BOOSTER
+// ══════════════════════════════════════════════
+const booster = {
+    level:         0,
+    remainingTime: 0,
+    activate() {
+        if (this.level < 3) this.level++;
+        this.remainingTime = CFG.boosterDuration;
+    },
+    update(dt) {
+        if (this.level === 0) return;
+        this.remainingTime -= dt;
+        if (this.remainingTime <= 0) {
+            this.level         = 0;
+            this.remainingTime = 0;
+        }
+    },
+    multiplier() { return CFG.boosterMultipliers[this.level]; },
+    reset() { this.level = 0; this.remainingTime = 0; },
+};
+
+// ══════════════════════════════════════════════
+//  OBSTACLES & ITEMS
+// ══════════════════════════════════════════════
+const obstacles = [];
+const items     = [];
+let lastObstacleSpawn = 0;
+let lastItemSpawn     = 0;
+
+function spawnObstacle() {
+    const lw   = road.laneWidth();
+    const lane = Math.floor(Math.random() * CFG.laneCount);
+    const cx   = road.leftEdge + lane * lw + lw / 2;
+    obstacles.push({
+        x:        cx - 18,
+        y:        -70,
+        width:    36,
+        height:   58,
+        speed:    CFG.obstacleBase + Math.random() * CFG.obstacleRandExtra + game.diffBonus,
+        isPushed: false,
+        scored:   false,
+        color:    `hsl(${0 + Math.random()*20 | 0}, 80%, 45%)`,
+    });
+}
+
+function spawnBoosterItem() {
+    const lw   = road.laneWidth();
+    const lane = Math.floor(Math.random() * CFG.laneCount);
+    const cx   = road.leftEdge + lane * lw + lw / 2;
+    items.push({
+        x:         cx,
+        y:         -50,
+        width:     32,
+        height:    32,
+        speed:     3.5,
+        collected: false,
+    });
+}
+
+// ══════════════════════════════════════════════
+//  TOUCH / MOUSE CONTROL
+// ══════════════════════════════════════════════
+let touchActive = false;
+let touchLastX  = 0;
+
+function onPointerDown(e) {
+    e.preventDefault();
+    touchActive = true;
+    const t = e.touches ? e.touches[0] : e;
+    touchLastX      = t.clientX;
+    player.targetX  = t.clientX - player.width / 2;
+}
+
+function onPointerMove(e) {
+    if (!touchActive) return;
+    e.preventDefault();
+    const t   = e.touches ? e.touches[0] : e;
+    const dx  = t.clientX - touchLastX;
+    touchLastX       = t.clientX;
+    player.targetX  += dx;
+}
+
+function onPointerUp(e) {
+    e.preventDefault();
+    touchActive = false;
+}
+
+canvas.addEventListener('touchstart',  onPointerDown, { passive: false });
+canvas.addEventListener('touchmove',   onPointerMove, { passive: false });
+canvas.addEventListener('touchend',    onPointerUp,   { passive: false });
+canvas.addEventListener('mousedown',   onPointerDown);
+canvas.addEventListener('mousemove',   onPointerMove);
+canvas.addEventListener('mouseup',     onPointerUp);
+
+// ══════════════════════════════════════════════
+//  COLLISION
+// ══════════════════════════════════════════════
+function rectsOverlap(a, b, margin) {
+    margin = margin || 0;
+    return a.x + margin < b.x + b.width  &&
+           a.x + a.width - margin > b.x  &&
+           a.y + margin < b.y + b.height &&
+           a.y + a.height - margin > b.y;
+}
+
+// ══════════════════════════════════════════════
+//  FLOATING SCORE TEXT
+// ══════════════════════════════════════════════
+const floatTexts = [];
+function addFloatText(text, x, y, color) {
+    floatTexts.push({ text, x, y, color: color || '#fff', alpha: 1.0, vy: -1.5 });
+}
+
+// ══════════════════════════════════════════════
+//  COMBO
+// ══════════════════════════════════════════════
+let comboTimer = null;
+function triggerCombo() {
+    game.combo++;
+    if (game.combo > game.maxCombo) game.maxCombo = game.combo;
+    if (game.combo >= 3) showCombo();
+    if (comboTimer) clearTimeout(comboTimer);
+    comboTimer = setTimeout(() => { game.combo = 0; }, 3000);
+}
+
+function showCombo() {
+    const el = document.getElementById('comboDisplay');
+    el.textContent = `${game.combo}x 콤보!`;
+    el.style.opacity = '1';
+    clearTimeout(el._timer);
+    el._timer = setTimeout(() => { el.style.opacity = '0'; }, 900);
+}
+
+// ══════════════════════════════════════════════
+//  UPDATE
+// ══════════════════════════════════════════════
+function updatePlayer() {
+    // Smooth follow
+    const dx    = player.targetX - player.x;
+    player.x   += dx * CFG.playerEasing;
+
+    // Clamp to screen
+    player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
+
+    // On road?
+    const onRoad = player.x >= road.leftEdge &&
+                   player.x + player.width <= road.rightEdge;
+
+    const targetSpd = CFG.baseSpeed * booster.multiplier();
+
+    if (onRoad) {
+        if (player.speed < targetSpd) player.speed += CFG.acceleration;
+        else                          player.speed  = targetSpd;
+    } else {
+        player.speed -= CFG.offRoadDecel;
+    }
+    player.speed = Math.max(0, Math.min(player.speed, CFG.maxSpeed * booster.multiplier()));
+}
+
+function updateDifficulty(now) {
+    if (now - game.lastDiffRamp > CFG.diffRampInterval) {
+        game.diffBonus    += CFG.diffRampAmount;
+        game.lastDiffRamp  = now;
+    }
+}
+
+function updateObstacles(now) {
+    for (let i = obstacles.length - 1; i >= 0; i--) {
+        const obs = obstacles[i];
+        obs.y += obs.speed + player.speed;
+
+        if (obs.y > canvas.height + 10) {
+            obstacles.splice(i, 1);
+            if (!obs.scored) {
+                game.score += 10;
+                triggerCombo();
+                addFloatText('+10', obs.x + obs.width / 2, canvas.height - 80, '#aaffaa');
+            }
+            continue;
+        }
+
+        if (rectsOverlap(player, obs, 6)) {
+            if (booster.level === 3) {
+                // 파괴
+                addFloatText('💥 +50', obs.x + obs.width / 2, obs.y, '#FF6B6B');
+                obstacles.splice(i, 1);
+                game.score += 50;
+                triggerCombo();
+            } else if (booster.level === 2) {
+                // 밀쳐냄
+                if (!obs.isPushed) {
+                    obs.isPushed = true;
+                    obs.speed   += 6;
+                    const dir    = (obs.x + obs.width / 2 < player.x + player.width / 2) ? -1 : 1;
+                    obs.x       += dir * 110;
+                    game.score  += 20;
+                    triggerCombo();
+                    addFloatText('💨 +20', obs.x, obs.y - 20, '#FFBB44');
+                }
+            } else {
+                triggerGameOver();
+            }
+        }
+    }
+
+    // Spawn
+    if (now - lastObstacleSpawn > CFG.obstacleInterval - Math.min(game.diffBonus * 200, 700)) {
+        spawnObstacle();
+        lastObstacleSpawn = now;
+    }
+}
+
+function updateItems(now) {
+    for (let i = items.length - 1; i >= 0; i--) {
+        const item = items[i];
+        item.y += item.speed + player.speed * 0.4;
+
+        if (item.y > canvas.height + 10) {
+            items.splice(i, 1);
+            continue;
+        }
+
+        if (!item.collected && rectsOverlap(player, {
+            x: item.x - item.width / 2, y: item.y - item.height / 2,
+            width: item.width, height: item.height
+        }, 0)) {
+            item.collected = true;
+            items.splice(i, 1);
+            booster.activate();
+            game.score += 100;
+            addFloatText('⚡ +100', item.x, item.y - 10, '#FFD700');
+        }
+    }
+
+    if (now - lastItemSpawn > CFG.itemInterval) {
+        spawnBoosterItem();
+        lastItemSpawn = now;
+    }
+}
+
+function updateFloatTexts() {
+    for (let i = floatTexts.length - 1; i >= 0; i--) {
+        const ft = floatTexts[i];
+        ft.y     += ft.vy;
+        ft.alpha -= 0.018;
+        if (ft.alpha <= 0) { floatTexts.splice(i, 1); }
+    }
+}
+
+// ══════════════════════════════════════════════
+//  DRAW HELPERS
+// ══════════════════════════════════════════════
+function drawGrass() {
+    // Left grass
+    ctx.fillStyle = road.grassColor;
+    ctx.fillRect(0, 0, road.leftEdge, canvas.height);
+    // Right grass
+    ctx.fillRect(road.rightEdge, 0, canvas.width - road.rightEdge, canvas.height);
+
+    // Grass texture lines
+    ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+    ctx.lineWidth   = 1;
+    const stripeW   = 18;
+    for (let sx = 0; sx < road.leftEdge; sx += stripeW) {
+        ctx.beginPath();
+        ctx.moveTo(sx, 0); ctx.lineTo(sx, canvas.height);
+        ctx.stroke();
+    }
+    for (let sx = road.rightEdge; sx < canvas.width; sx += stripeW) {
+        ctx.beginPath();
+        ctx.moveTo(sx, 0); ctx.lineTo(sx, canvas.height);
+        ctx.stroke();
+    }
+}
+
+function drawRoad() {
+    // Asphalt
+    ctx.fillStyle = road.asphalt;
+    ctx.fillRect(road.leftEdge, 0, road.width, canvas.height);
+
+    // Scrolling dashes
+    const lw  = road.laneWidth();
+    ctx.setLineDash([28, 22]);
+    ctx.lineWidth   = 3;
+    ctx.strokeStyle = road.lineColor;
+
+    const segH  = CFG.scrollSegmentH;
+    const offset = road.scrollY % segH;
+
+    for (let ln = 1; ln < CFG.laneCount; ln++) {
+        const x = road.leftEdge + ln * lw;
+        ctx.beginPath();
+        // draw extra segments above/below to fill screen
+        for (let y = -segH + offset; y < canvas.height + segH; y += segH) {
+            ctx.moveTo(x, y);
+            ctx.lineTo(x, y + segH * 0.55);
+        }
+        ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    // Border
+    ctx.strokeStyle = road.borderColor;
+    ctx.lineWidth   = 5;
+    ctx.beginPath();
+    ctx.moveTo(road.leftEdge,  0); ctx.lineTo(road.leftEdge,  canvas.height);
+    ctx.moveTo(road.rightEdge, 0); ctx.lineTo(road.rightEdge, canvas.height);
+    ctx.stroke();
+}
+
+// Draw a simple pixel-art car shape
+function drawCar(x, y, w, h, bodyColor, lightColor, facing) {
+    // facing: 'down' = player, 'up' = obstacle
+    const isDown = facing !== 'up';
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath();
+    ctx.ellipse(x + w / 2, y + h * 0.85, w * 0.5, h * 0.12, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Body
+    ctx.fillStyle = bodyColor;
+    // Main body rect
+    ctx.beginPath();
+    ctx.roundRect(x + w * 0.08, y + h * 0.18, w * 0.84, h * 0.64, 4);
+    ctx.fill();
+
+    // Bumper
+    ctx.fillStyle = shiftColor(bodyColor, -30);
+    if (isDown) {
+        ctx.fillRect(x + w * 0.12, y + h * 0.78, w * 0.76, h * 0.1);
+        ctx.fillRect(x + w * 0.12, y + h * 0.12, w * 0.76, h * 0.07);
+    } else {
+        ctx.fillRect(x + w * 0.12, y + h * 0.12, w * 0.76, h * 0.1);
+        ctx.fillRect(x + w * 0.12, y + h * 0.78, w * 0.76, h * 0.07);
+    }
+
+    // Cabin / window
+    ctx.fillStyle = 'rgba(120,200,255,0.7)';
+    ctx.beginPath();
+    ctx.roundRect(x + w * 0.22, y + h * 0.28, w * 0.56, h * 0.32, 3);
+    ctx.fill();
+
+    // Headlights
+    ctx.fillStyle = lightColor;
+    const ly = isDown ? y + h * 0.06 : y + h * 0.84;
+    ctx.fillRect(x + w * 0.1,  ly, w * 0.22, h * 0.07);
+    ctx.fillRect(x + w * 0.68, ly, w * 0.22, h * 0.07);
+
+    // Wheels
+    ctx.fillStyle = '#111';
+    // front-left
+    ctx.fillRect(x,              y + h * 0.18, w * 0.1, h * 0.22);
+    // front-right
+    ctx.fillRect(x + w * 0.9,   y + h * 0.18, w * 0.1, h * 0.22);
+    // rear-left
+    ctx.fillRect(x,              y + h * 0.6,  w * 0.1, h * 0.22);
+    // rear-right
+    ctx.fillRect(x + w * 0.9,   y + h * 0.6,  w * 0.1, h * 0.22);
+}
+
+function shiftColor(hex, amount) {
+    // crude brightness shift
+    let r = parseInt(hex.slice(1,3),16);
+    let g = parseInt(hex.slice(3,5),16);
+    let b = parseInt(hex.slice(5,7),16);
+    r = Math.max(0, Math.min(255, r + amount));
+    g = Math.max(0, Math.min(255, g + amount));
+    b = Math.max(0, Math.min(255, b + amount));
+    return `rgb(${r},${g},${b})`;
+}
+
+function drawPlayer() {
+    const px = player.x;
+    const py = player.y;
+    const pw = player.width;
+    const ph = player.height;
+
+    // Boost aura
+    if (booster.level > 0) {
+        const auraColors = [
+            null,
+            'rgba(76,175,80,',
+            'rgba(255,152,0,',
+            'rgba(244,67,54,',
+        ];
+        const ac = auraColors[booster.level];
+        const pulse = booster.level === 3
+            ? 1 + 0.12 * Math.sin(Date.now() / 120)
+            : 1;
+        const auraR = pw * 1.3 * pulse;
+        const grad = ctx.createRadialGradient(
+            px + pw / 2, py + ph / 2, pw * 0.2,
+            px + pw / 2, py + ph / 2, auraR
+        );
+        grad.addColorStop(0, ac + '0.6)');
+        grad.addColorStop(1, ac + '0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.ellipse(px + pw / 2, py + ph / 2, auraR, auraR * 1.4, 0, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    drawCar(px, py, pw, ph, '#0099ee', '#ffffaa', 'down');
+}
+
+function drawObstacles() {
+    obstacles.forEach(obs => {
+        drawCar(obs.x, obs.y, obs.width, obs.height, obs.color, '#ff9900', 'up');
+    });
+}
+
+// Spinning star
+function drawStar(cx, cy, r, spikes, rot) {
+    const inner = r * 0.45;
+    ctx.beginPath();
+    for (let i = 0; i < spikes * 2; i++) {
+        const angle = rot + (i * Math.PI) / spikes;
+        const dist  = i % 2 === 0 ? r : inner;
+        const x = cx + Math.cos(angle) * dist;
+        const y = cy + Math.sin(angle) * dist;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+}
+
+function drawItems() {
+    const now = Date.now();
+    items.forEach(item => {
+        const cx  = item.x;
+        const cy  = item.y;
+        const r   = item.width / 2;
+        const rot = now / 500;
+
+        // Glow
+        const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 2.2);
+        glow.addColorStop(0, 'rgba(255,220,0,0.35)');
+        glow.addColorStop(1, 'rgba(255,220,0,0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 2.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Star
+        drawStar(cx, cy, r, 5, rot - Math.PI / 2);
+        ctx.fillStyle   = '#FFD700';
+        ctx.fill();
+        ctx.strokeStyle = '#FFA500';
+        ctx.lineWidth   = 2;
+        ctx.stroke();
+
+        // Inner shine
+        drawStar(cx, cy, r * 0.55, 5, rot - Math.PI / 2 + 0.3);
+        ctx.fillStyle = 'rgba(255,255,200,0.55)';
+        ctx.fill();
+    });
+}
+
+function drawFloatTexts() {
+    floatTexts.forEach(ft => {
+        ctx.globalAlpha = ft.alpha;
+        ctx.fillStyle   = ft.color;
+        ctx.font        = 'bold 20px Arial';
+        ctx.textAlign   = 'center';
+        ctx.fillText(ft.text, ft.x, ft.y);
+        ctx.globalAlpha = 1;
+    });
+    ctx.textAlign = 'left';
+}
+
+// ══════════════════════════════════════════════
+//  UI UPDATE
+// ══════════════════════════════════════════════
+function updateHUD() {
+    document.getElementById('score').textContent    = Math.floor(game.score);
+    document.getElementById('distance').textContent = Math.floor(game.distance);
+    document.getElementById('speed').textContent    = Math.floor(player.speed * 12);
+    document.getElementById('bestScore').textContent = game.bestScore;
+
+    const bi = document.getElementById('boosterInfo');
+    bi.className = `booster-level-${booster.level}`;
+    document.getElementById('boosterLevel').textContent = booster.level;
+
+    // Build bar
+    const pct     = booster.remainingTime / CFG.boosterDuration;
+    const filled  = Math.round(pct * 8);
+    const bar     = '█'.repeat(filled) + '░'.repeat(8 - filled);
+    document.getElementById('boosterBar').textContent  = bar;
+    document.getElementById('boosterTime').textContent = (booster.remainingTime / 1000).toFixed(1);
+}
+
+// ══════════════════════════════════════════════
+//  GAME OVER / RESTART
+// ══════════════════════════════════════════════
+function triggerGameOver() {
+    game.isRunning = false;
+    game.isOver    = true;
+
+    // Best score
+    const isNew = game.score > game.bestScore;
+    if (isNew) {
+        game.bestScore = Math.floor(game.score);
+        localStorage.setItem('bestScore', game.bestScore);
+    }
+
+    document.getElementById('finalScore').textContent    = Math.floor(game.score);
+    document.getElementById('finalDistance').textContent = Math.floor(game.distance);
+    document.getElementById('finalCombo').textContent    = game.maxCombo;
+    document.getElementById('newBestBadge').style.display = isNew ? 'block' : 'none';
+    document.getElementById('gameOver').style.display    = 'block';
+}
+
+function resetGame() {
+    game.score      = 0;
+    game.distance   = 0;
+    game.combo      = 0;
+    game.maxCombo   = 0;
+    game.diffBonus  = 0;
+    game.isRunning  = true;
+    game.isPaused   = false;
+    game.isOver     = false;
+    game.startTime  = Date.now();
+    game.lastDiffRamp = Date.now();
+
+    player.reset();
+    booster.reset();
+    obstacles.length    = 0;
+    items.length        = 0;
+    floatTexts.length   = 0;
+    lastObstacleSpawn   = 0;
+    lastItemSpawn       = 0;
+    touchActive         = false;
+
+    document.getElementById('gameOver').style.display   = 'none';
+    document.getElementById('pauseOverlay').style.display = 'none';
+}
+
+// ══════════════════════════════════════════════
+//  BUTTON HANDLERS
+// ══════════════════════════════════════════════
+document.getElementById('startBtn').addEventListener('click', () => {
+    document.getElementById('startScreen').style.display = 'none';
+    resetGame();
+});
+
+document.getElementById('restartBtn').addEventListener('click', resetGame);
+
+document.getElementById('homeBtn').addEventListener('click', () => {
+    game.isRunning = false;
+    game.isOver    = false;
+    document.getElementById('gameOver').style.display     = 'none';
+    document.getElementById('startScreen').style.display  = 'flex';
+    document.getElementById('bestScoreDisplay').textContent = game.bestScore;
+});
+
+document.getElementById('pauseBtn').addEventListener('click', () => {
+    if (!game.isRunning) return;
+    game.isPaused = true;
+    game.isRunning = false;
+    document.getElementById('pauseOverlay').style.display = 'flex';
+});
+
+document.getElementById('resumeBtn').addEventListener('click', () => {
+    document.getElementById('pauseOverlay').style.display = 'none';
+    game.isPaused  = false;
+    game.isRunning = true;
+    lastTime = Date.now();
+});
+
+document.getElementById('quitBtn').addEventListener('click', () => {
+    game.isRunning = false;
+    game.isPaused  = false;
+    document.getElementById('pauseOverlay').style.display = 'none';
+    document.getElementById('startScreen').style.display  = 'flex';
+    document.getElementById('bestScoreDisplay').textContent = game.bestScore;
+});
+
+// ══════════════════════════════════════════════
+//  MAIN LOOP
+// ══════════════════════════════════════════════
+let lastTime = Date.now();
+
+function gameLoop() {
+    requestAnimationFrame(gameLoop);
+
+    const now  = Date.now();
+    const dt   = Math.min(now - lastTime, 50); // cap delta
+    lastTime   = now;
+
+    // ── DRAW BACKGROUND always ──
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (!game.isRunning) return;
+
+    // ── UPDATE ──
+    updateDifficulty(now);
+    updatePlayer();
+    booster.update(dt);
+    updateObstacles(now);
+    updateItems(now);
+    updateFloatTexts();
+
+    // Update scroll
+    road.scrollY = (road.scrollY + player.speed * 0.9) % CFG.scrollSegmentH;
+
+    // Distance
+    game.distance += player.speed * 0.08;
+
+    // ── DRAW ──
+    drawGrass();
+    drawRoad();
+    drawItems();
+    drawObstacles();
+    drawPlayer();
+    drawFloatTexts();
+
+    // ── HUD ──
+    updateHUD();
+}
+
+// ══════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════
+resizeCanvas();
+document.getElementById('bestScoreDisplay').textContent = game.bestScore;
+gameLoop();
+</script>
+</body>
+</html>
