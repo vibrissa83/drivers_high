@@ -1,0 +1,92 @@
+[
+  {
+    "number": 2,
+    "url": "https://github.com/vibrissa83/drivers_high/issues/2",
+    "node_id": "I_kwDORkuKJ87zFbS6",
+    "title": "[UI] 좌측 패널에 속도 표시 추가 (점수 아래)",
+    "priority": "P0",
+    "start": "2026-03-15",
+    "end": "2026-03-18"
+  },
+  {
+    "number": 3,
+    "url": "https://github.com/vibrissa83/drivers_high/issues/3",
+    "node_id": "I_kwDORkuKJ87zFbTP",
+    "title": "[Scale] 도로/차량 스케일 리밸런싱 (차량이 도로 폭의 2/3 체감)",
+    "priority": "P0",
+    "start": "2026-03-15",
+    "end": "2026-03-18"
+  },
+  {
+    "number": 4,
+    "url": "https://github.com/vibrissa83/drivers_high/issues/4",
+    "node_id": "I_kwDORkuKJ87zFbTs",
+    "title": "[Road] 도로 '깊이감' 연출 강화 (시야/스크롤)",
+    "priority": "P1",
+    "start": "2026-03-17",
+    "end": "2026-03-21"
+  },
+  {
+    "number": 5,
+    "url": "https://github.com/vibrissa83/drivers_high/issues/5",
+    "node_id": "I_kwDORkuKJ87zFbUF",
+    "title": "[Booster] 2단계 밀치기 물리 개선 (측면 넉백/속도 페널티)",
+    "priority": "P1",
+    "start": "2026-03-17",
+    "end": "2026-03-22"
+  },
+  {
+    "number": 6,
+    "url": "https://github.com/vibrissa83/drivers_high/issues/6",
+    "node_id": "I_kwDORkuKJ87zFbUe",
+    "title": "[Booster] 3단계 파괴 이펙트 (파티클/플로팅 텍스트)",
+    "priority": "P1",
+    "start": "2026-03-18",
+    "end": "2026-03-23"
+  },
+  {
+    "number": 7,
+    "url": "https://github.com/vibrissa83/drivers_high/issues/7",
+    "node_id": "I_kwDORkuKJ87zFbU3",
+    "title": "[Balance] 난이도 램프 튜닝 (15초마다 증가 값 검증)",
+    "priority": "P1",
+    "start": "2026-03-19",
+    "end": "2026-03-24"
+  },
+  {
+    "number": 8,
+    "url": "https://github.com/vibrissa83/drivers_high/issues/8",
+    "node_id": "I_kwDORkuKJ87zFbVQ",
+    "title": "[UX] 시작 화면에 간단 튜토리얼 (드래그 안내)",
+    "priority": "P2",
+    "start": "2026-03-20",
+    "end": "2026-03-25"
+  },
+  {
+    "number": 9,
+    "url": "https://github.com/vibrissa83/drivers_high/issues/9",
+    "node_id": "I_kwDORkuKJ87zFbVp",
+    "title": "[Tech] 로컬 최고점수 (LocalStorage) 표시/초기화 UX 점검",
+    "priority": "P2",
+    "start": "2026-03-20",
+    "end": "2026-03-25"
+  },
+  {
+    "number": 10,
+    "url": "https://github.com/vibrissa83/drivers_high/issues/10",
+    "node_id": "I_kwDORkuKJ87zFbWB",
+    "title": "[Docs] README에 조작/규칙/로드맵 링크 업데이트",
+    "priority": "P2",
+    "start": "2026-03-23",
+    "end": "2026-03-27"
+  },
+  {
+    "number": 11,
+    "url": "https://github.com/vibrissa83/drivers_high/issues/11",
+    "node_id": "I_kwDORkuKJ87zFbWi",
+    "title": "[Release] GitHub Pages 배포 설정 및 URL 정리",
+    "priority": "P2",
+    "start": "2026-03-25",
+    "end": "2026-03-29"
+  }
+]

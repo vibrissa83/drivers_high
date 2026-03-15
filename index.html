@@ -3,486 +3,542 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>모바일 레이싱 게임</title>
+    <title>드라이버스 하이 🏎️</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
-
+        * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
         body {
-            overflow: hidden;
-            background: #1a1a2e;
-            font-family: 'Arial', sans-serif;
-            touch-action: none;
-            -webkit-user-select: none;
-            user-select: none;
+            overflow:hidden; background:#1a1a2e;
+            font-family:'Arial',sans-serif;
+            touch-action:none; -webkit-user-select:none; user-select:none;
         }
+        #gameCanvas { display:block; width:100vw; height:100vh; touch-action:none; }
 
-        #gameCanvas {
-            display: block;
-            width: 100vw;
-            height: 100vh;
-            touch-action: none;
-        }
+        /* ── HUD ── */
+        #ui { position:absolute; top:0; left:0; width:100%; pointer-events:none;
+              color:white; font-weight:bold; text-shadow:2px 2px 4px rgba(0,0,0,0.8); }
+        .ui-panel { padding:12px 18px; background:rgba(0,0,0,0.55); border-radius:12px;
+                    margin:10px; backdrop-filter:blur(4px); border:1px solid rgba(255,255,255,0.1); }
+        #topLeft  { position:absolute; top:0; left:0;  font-size:18px; line-height:1.6; }
+        #topRight { position:absolute; top:0; right:0; font-size:18px; text-align:right; line-height:1.6; }
 
-        #ui {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            pointer-events: none;
-            color: white;
-            font-weight: bold;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-        }
+        /* 스텝 쿨타임 바 */
+        #stepBar { position:absolute; bottom:90px; left:50%; transform:translateX(-50%);
+                   width:120px; height:6px; background:rgba(255,255,255,0.15); border-radius:3px;
+                   overflow:hidden; }
+        #stepBarFill { height:100%; width:100%; background:#00e5ff;
+                       border-radius:3px; transition:width 0.05s linear; }
 
-        .ui-panel {
-            padding: 12px 18px;
-            background: rgba(0, 0, 0, 0.55);
-            border-radius: 12px;
-            margin: 10px;
-            backdrop-filter: blur(4px);
-            border: 1px solid rgba(255,255,255,0.1);
-        }
+        /* 부스터 */
+        #boosterInfo { position:absolute; bottom:24px; left:50%; transform:translateX(-50%);
+                       font-size:22px; text-align:center; padding:14px 28px; border-radius:16px;
+                       background:rgba(0,0,0,0.75); border:3px solid transparent;
+                       transition:border-color .3s,color .3s; white-space:nowrap; backdrop-filter:blur(6px); }
+        .booster-level-0 { display:none !important; }
+        .booster-level-1 { display:block; border-color:#4CAF50 !important; color:#4CAF50 !important; }
+        .booster-level-2 { display:block; border-color:#FF9800 !important; color:#FF9800 !important; }
+        .booster-level-3 { display:block; border-color:#F44336 !important; color:#F44336 !important;
+                           animation:pulse .5s infinite; }
+        @keyframes pulse { 0%,100%{transform:translateX(-50%) scale(1)} 50%{transform:translateX(-50%) scale(1.06)} }
 
-        #topLeft {
-            position: absolute;
-            top: 0;
-            left: 0;
-            font-size: 18px;
-            line-height: 1.5;
-        }
+        /* 시작화면 */
+        #startScreen { position:absolute; top:0; left:0; width:100%; height:100%;
+                       background:linear-gradient(160deg,#0f0c29,#302b63,#24243e);
+                       display:flex; flex-direction:column; align-items:center; justify-content:center;
+                       gap:20px; pointer-events:auto; z-index:10; }
+        #startScreen h1 { font-size:42px; color:#fff;
+                          text-shadow:0 0 30px #00aaff,0 0 60px #00aaff88;
+                          letter-spacing:2px; text-align:center; }
+        #startScreen .subtitle { font-size:16px; color:#aac; text-align:center;
+                                  max-width:320px; line-height:1.6; }
+        .action-btn { margin-top:10px; padding:16px 52px; font-size:22px;
+                      background:linear-gradient(135deg,#00aaff,#0055cc); color:white;
+                      border:none; border-radius:50px; cursor:pointer; font-weight:bold;
+                      letter-spacing:1px; box-shadow:0 4px 24px rgba(0,170,255,.45);
+                      transition:transform .15s,box-shadow .15s; }
+        .action-btn:active { transform:scale(.95); box-shadow:0 2px 12px rgba(0,170,255,.3); }
+        .how-to { display:flex; gap:24px; margin-top:4px; }
+        .how-item { background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.15);
+                    border-radius:12px; padding:12px 16px; font-size:13px; color:#cce;
+                    text-align:center; line-height:1.5; }
+        .how-item .icon { font-size:26px; display:block; margin-bottom:4px; }
 
-        #topRight {
-            position: absolute;
-            top: 0;
-            right: 0;
-            font-size: 18px;
-            text-align: right;
-            line-height: 1.5;
-        }
+        /* 게임오버 */
+        #gameOver { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+                    background:rgba(0,0,0,.92); padding:40px 48px; border-radius:24px;
+                    text-align:center; display:none; pointer-events:auto; z-index:10;
+                    border:2px solid rgba(255,255,255,.12); backdrop-filter:blur(10px);
+                    min-width:280px; }
+        #gameOver h1 { font-size:36px; margin-bottom:20px; color:#ff4444;
+                       text-shadow:0 0 20px #ff444488; }
+        #gameOver .stat-row { font-size:20px; margin:10px 0; color:#dde; }
+        #gameOver .stat-row span { color:#fff; font-size:22px; }
+        #gameOver .new-best { font-size:15px; color:#FFD700; margin-top:6px; display:none; }
+        .restart-btn { margin-top:28px; padding:14px 44px; font-size:22px;
+                       background:linear-gradient(135deg,#4CAF50,#2e7d32); color:white;
+                       border:none; border-radius:50px; cursor:pointer; font-weight:bold;
+                       box-shadow:0 4px 20px rgba(76,175,80,.45); transition:transform .15s; }
+        .restart-btn:active { transform:scale(.95); }
 
-        #boosterInfo {
-            position: absolute;
-            bottom: 24px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 22px;
-            text-align: center;
-            padding: 14px 28px;
-            border-radius: 16px;
-            background: rgba(0, 0, 0, 0.75);
-            border: 3px solid transparent;
-            transition: border-color 0.3s ease, color 0.3s ease;
-            white-space: nowrap;
-            backdrop-filter: blur(6px);
-        }
+        /* 일시정지 버튼 */
+        #pauseBtn { position:absolute; top:10px; left:50%; transform:translateX(-50%);
+                    background:rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.2);
+                    border-radius:50%; width:40px; height:40px; color:white; font-size:16px;
+                    cursor:pointer; display:flex; align-items:center; justify-content:center;
+                    pointer-events:auto; z-index:5; backdrop-filter:blur(4px); }
+        #pauseOverlay { position:absolute; top:0; left:0; width:100%; height:100%;
+                        background:rgba(0,0,0,.65); display:none; align-items:center;
+                        justify-content:center; flex-direction:column; gap:20px; z-index:9;
+                        pointer-events:auto; backdrop-filter:blur(4px); }
+        #pauseOverlay h2 { font-size:36px; color:#fff; letter-spacing:3px; }
 
-        .booster-level-0 {
-            display: none !important;
-        }
+        /* 콤보 / 판정 팝업 */
+        #comboDisplay { position:absolute; top:48%; left:50%; transform:translate(-50%,-50%);
+                        pointer-events:none; font-size:32px; font-weight:bold;
+                        color:#FFD700; text-shadow:0 0 20px #FFD700;
+                        opacity:0; transition:opacity .25s; z-index:6; }
+        #judgement   { position:absolute; top:38%; left:50%; transform:translate(-50%,-50%);
+                       pointer-events:none; font-size:44px; font-weight:900; opacity:0;
+                       text-align:center; z-index:7; transition:opacity .2s;
+                       text-shadow:0 0 30px currentColor; letter-spacing:2px; }
 
-        .booster-level-1 {
-            display: block;
-            border-color: #4CAF50 !important;
-            color: #4CAF50 !important;
-        }
+        /* 비네팅 오버레이 (퍼펙트 회피 시) */
+        #vignette { position:absolute; top:0; left:0; width:100%; height:100%;
+                    pointer-events:none; z-index:8; opacity:0;
+                    background:radial-gradient(ellipse at center,transparent 50%,rgba(0,255,200,.35) 100%);
+                    transition:opacity .15s; }
 
-        .booster-level-2 {
-            display: block;
-            border-color: #FF9800 !important;
-            color: #FF9800 !important;
-        }
+        /* 플래시 오버레이 */
+        #flashOverlay { position:absolute; top:0; left:0; width:100%; height:100%;
+                        pointer-events:none; z-index:8; opacity:0;
+                        transition:opacity .08s; }
 
-        .booster-level-3 {
-            display: block;
-            border-color: #F44336 !important;
-            color: #F44336 !important;
-            animation: pulse 0.5s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { transform: translateX(-50%) scale(1); }
-            50%       { transform: translateX(-50%) scale(1.06); }
-        }
-
-        /* ── 시작 화면 ── */
-        #startScreen {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: linear-gradient(160deg, #0f0c29, #302b63, #24243e);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 20px;
-            pointer-events: auto;
-            z-index: 10;
-        }
-
-        #startScreen h1 {
-            font-size: 42px;
-            color: #fff;
-            text-shadow: 0 0 30px #00aaff, 0 0 60px #00aaff88;
-            letter-spacing: 2px;
-            text-align: center;
-        }
-
-        #startScreen .subtitle {
-            font-size: 16px;
-            color: #aac;
-            text-align: center;
-            max-width: 320px;
-            line-height: 1.6;
-        }
-
-        .action-btn {
-            margin-top: 10px;
-            padding: 16px 52px;
-            font-size: 22px;
-            background: linear-gradient(135deg, #00aaff, #0055cc);
-            color: white;
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            font-weight: bold;
-            letter-spacing: 1px;
-            box-shadow: 0 4px 24px rgba(0,170,255,0.45);
-            transition: transform 0.15s, box-shadow 0.15s;
-        }
-
-        .action-btn:active {
-            transform: scale(0.95);
-            box-shadow: 0 2px 12px rgba(0,170,255,0.3);
-        }
-
-        .how-to {
-            display: flex;
-            gap: 24px;
-            margin-top: 4px;
-        }
-
-        .how-item {
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 12px;
-            padding: 12px 16px;
-            font-size: 13px;
-            color: #cce;
-            text-align: center;
-            line-height: 1.5;
-        }
-
-        .how-item .icon { font-size: 26px; display: block; margin-bottom: 4px; }
-
-        /* ── 게임 오버 ── */
-        #gameOver {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.92);
-            padding: 40px 48px;
-            border-radius: 24px;
-            text-align: center;
-            display: none;
-            pointer-events: auto;
-            z-index: 10;
-            border: 2px solid rgba(255,255,255,0.12);
-            backdrop-filter: blur(10px);
-            min-width: 280px;
-        }
-
-        #gameOver h1 {
-            font-size: 36px;
-            margin-bottom: 20px;
-            color: #ff4444;
-            text-shadow: 0 0 20px #ff444488;
-        }
-
-        #gameOver .stat-row {
-            font-size: 20px;
-            margin: 10px 0;
-            color: #dde;
-        }
-
-        #gameOver .stat-row span {
-            color: #fff;
-            font-size: 22px;
-        }
-
-        #gameOver .new-best {
-            font-size: 15px;
-            color: #FFD700;
-            margin-top: 6px;
-            display: none;
-        }
-
-        .restart-btn {
-            margin-top: 28px;
-            padding: 14px 44px;
-            font-size: 22px;
-            background: linear-gradient(135deg, #4CAF50, #2e7d32);
-            color: white;
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            font-weight: bold;
-            box-shadow: 0 4px 20px rgba(76,175,80,0.45);
-            transition: transform 0.15s;
-        }
-
-        .restart-btn:active { transform: scale(0.95); }
-
-        /* ── 일시정지 버튼 ── */
-        #pauseBtn {
-            position: absolute;
-            top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0,0,0,0.5);
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            color: white;
-            font-size: 16px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            pointer-events: auto;
-            z-index: 5;
-            backdrop-filter: blur(4px);
-        }
-
-        /* ── 일시정지 오버레이 ── */
-        #pauseOverlay {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: rgba(0,0,0,0.65);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            gap: 20px;
-            z-index: 9;
-            pointer-events: auto;
-            backdrop-filter: blur(4px);
-        }
-
-        #pauseOverlay h2 {
-            font-size: 36px;
-            color: #fff;
-            letter-spacing: 3px;
-        }
-
-        /* ── 콤보 표시 ── */
-        #comboDisplay {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            pointer-events: none;
-            font-size: 32px;
-            font-weight: bold;
-            color: #FFD700;
-            text-shadow: 0 0 20px #FFD700;
-            opacity: 0;
-            transition: opacity 0.3s;
-            z-index: 6;
-        }
+        /* 드리프트 게이지 */
+        #driftGauge { position:absolute; bottom:105px; left:50%; transform:translateX(-50%);
+                      width:160px; height:8px; background:rgba(255,255,255,.1);
+                      border-radius:4px; overflow:hidden; display:none; }
+        #driftFill { height:100%; width:0%; background:linear-gradient(90deg,#ff6600,#ffdd00);
+                     border-radius:4px; transition:width .05s; }
     </style>
 </head>
 <body>
 
-<!-- ═══════════ START SCREEN ═══════════ -->
+<!-- START SCREEN -->
 <div id="startScreen">
-    <h1>🏎️ 레이싱<br>게임</h1>
+    <h1>🏎️ 드라이버스<br>하이</h1>
     <p class="subtitle">장애물을 피하고 부스터를 모아<br>최고 점수를 달성하세요!</p>
-
     <div class="how-to">
-        <div class="how-item">
-            <span class="icon">👆</span>
-            터치 &amp; 드래그<br>좌우 이동
-        </div>
-        <div class="how-item">
-            <span class="icon">⭐</span>
-            별 아이템<br>부스터 충전
-        </div>
-        <div class="how-item">
-            <span class="icon">🚗</span>
-            빨간 차<br>충돌 금지
-        </div>
+        <div class="how-item"><span class="icon">👆</span>드래그<br>조향(관성)</div>
+        <div class="how-item"><span class="icon">⚡</span>빠른 플릭<br>스텝 대시</div>
+        <div class="how-item"><span class="icon">⭐</span>별 아이템<br>부스터 충전</div>
     </div>
-
     <button class="action-btn" id="startBtn">게임 시작!</button>
-
-    <div style="font-size:13px; color:#778; margin-top:8px;">
+    <div style="font-size:13px;color:#778;margin-top:8px;">
         최고 기록: <span id="bestScoreDisplay">0</span>점
     </div>
 </div>
 
-<!-- ═══════════ CANVAS ═══════════ -->
+<!-- CANVAS -->
 <canvas id="gameCanvas"></canvas>
 
-<!-- ═══════════ HUD ═══════════ -->
+<!-- HUD -->
 <div id="ui">
     <div id="topLeft" class="ui-panel">
         <div>점수: <span id="score">0</span></div>
         <div>거리: <span id="distance">0</span>m</div>
+        <div style="font-size:14px;color:#aac;">퍼펙트: <span id="nearCount">0</span></div>
     </div>
     <div id="topRight" class="ui-panel">
         <div>속도: <span id="speed">0</span></div>
-        <div style="font-size:14px; color:#aac;">최고: <span id="bestScore">0</span></div>
+        <div style="font-size:14px;color:#aac;">최고: <span id="bestScore">0</span></div>
     </div>
     <button id="pauseBtn">⏸</button>
+    <div id="driftGauge"><div id="driftFill"></div></div>
+    <div id="stepBar"><div id="stepBarFill"></div></div>
     <div id="boosterInfo" class="booster-level-0">
         <div>⚡ 부스터 LV.<span id="boosterLevel">0</span></div>
-        <div style="font-size:16px; margin-top:4px;">
+        <div style="font-size:16px;margin-top:4px;">
             <span id="boosterBar"></span> <span id="boosterTime">0.0</span>s
         </div>
     </div>
 </div>
 
-<!-- ═══════════ COMBO ═══════════ -->
+<!-- JUDGEMENT POPUP -->
+<div id="judgement"></div>
+<!-- COMBO -->
 <div id="comboDisplay"></div>
+<!-- VIGNETTE -->
+<div id="vignette"></div>
+<!-- FLASH -->
+<div id="flashOverlay"></div>
 
-<!-- ═══════════ PAUSE ═══════════ -->
+<!-- PAUSE -->
 <div id="pauseOverlay">
     <h2>⏸ 일시정지</h2>
     <button class="action-btn" id="resumeBtn">계속하기</button>
-    <button class="action-btn" style="background:linear-gradient(135deg,#555,#333); box-shadow:none;" id="quitBtn">처음으로</button>
+    <button class="action-btn" style="background:linear-gradient(135deg,#555,#333);box-shadow:none;" id="quitBtn">처음으로</button>
 </div>
 
-<!-- ═══════════ GAME OVER ═══════════ -->
+<!-- GAME OVER -->
 <div id="gameOver">
     <h1>게임 오버!</h1>
     <div class="stat-row">최종 점수: <span id="finalScore">0</span></div>
     <div class="stat-row">주행 거리: <span id="finalDistance">0</span>m</div>
     <div class="stat-row">최고 콤보: <span id="finalCombo">0</span></div>
+    <div class="stat-row">퍼펙트 회피: <span id="finalPerfect">0</span></div>
     <div class="new-best" id="newBestBadge">🏆 새 최고 기록!</div>
-    <button class="restart-btn" id="restartBtn">다시 시작</button>
-    <br>
-    <button class="action-btn" style="margin-top:12px; background:linear-gradient(135deg,#555,#333); box-shadow:none; font-size:16px; padding:10px 28px;" id="homeBtn">처음으로</button>
+    <button class="restart-btn" id="restartBtn">다시 시작</button><br>
+    <button class="action-btn" style="margin-top:12px;background:linear-gradient(135deg,#555,#333);box-shadow:none;font-size:16px;padding:10px 28px;" id="homeBtn">처음으로</button>
 </div>
 
 <script>
-// ══════════════════════════════════════════════
-//  CANVAS SETUP
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
+//  CANVAS
+// ════════════════════════════════════════════════════════
 const canvas = document.getElementById('gameCanvas');
 const ctx    = canvas.getContext('2d');
 
 function resizeCanvas() {
     canvas.width  = window.innerWidth;
     canvas.height = window.innerHeight;
-    // 도로 너비 재계산
     road.width    = Math.min(canvas.width * 0.72, 420);
 }
-window.addEventListener('resize', () => { resizeCanvas(); });
+window.addEventListener('resize', resizeCanvas);
 
-// ══════════════════════════════════════════════
-//  CONSTANTS / CONFIG
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
+//  CONFIG
+// ════════════════════════════════════════════════════════
 const CFG = {
-    baseSpeed:           5,
-    maxSpeed:            18,
-    acceleration:        0.18,
-    offRoadDecel:        0.55,
-    playerEasing:        0.14,
-    obstacleBase:        3,
-    obstacleRandExtra:   2.5,
-    obstacleInterval:    1400,  // ms
-    itemInterval:        2800,  // ms
-    boosterDuration:     5000,  // ms
-    boosterMultipliers:  [1.0, 1.5, 2.0, 2.5],
-    diffRampInterval:    15000, // ms – 15초마다 난이도 증가
-    diffRampAmount:      0.15,  // 장애물 속도 보너스
-    laneCount:           3,
-    scrollSegmentH:      80,    // 차선 대시 높기
+    // 포워드 속도
+    baseSpeed:          5,
+    maxSpeed:           18,
+    acceleration:       0.18,
+    offRoadDecel:       0.55,
+
+    // ── 조향 관성 핵심 손맛 ──
+    steerAccel:         0.048,    // 드래그 입력 → 속도 전달 비율 (낮출수록 무거운 느낌)
+    steerFriction:      0.80,     // 프레임당 감쇠 (0.75=묵직, 0.85=미끄럼)
+    steerFrictionDrag:  0.88,     // 드래그 중 감쇠 (더 즉각 반응)
+    steerMax:           26,       // 최대 횡 속도(px/frame)
+    oversteerThresh:    16,       // 이 이상이면 오버스티어 흔들림
+    returnForce:        0.035,    // 손 뗐을 때 살짝 중앙 복귀 (0=없음)
+
+    // ── 스텝(플릭 대시) ──
+    flickThreshold:     12,       // px/frame 이상이면 플릭
+    flickTimeWindow:    130,      // ms 이내 빠른 이동
+    stepForce:          52,       // 대시 순간 횡 속도
+    stepDuration:       200,      // ms
+    stepCooldown:       1100,     // ms
+
+    // ── 드리프트 게이지 (연속 좌우 조향으로 채움) ──
+    driftThresh:        10,       // velX 절대값 이상이면 게이지 축적
+    driftFillRate:      0.0015,   // 프레임당 채움량
+    driftDecayRate:     0.003,    // 프레임당 감소량
+
+    // ── 니어미스 판정 ──
+    nearMissDist:       60,       // px – 이 거리 이내 통과 시 니어미스
+    perfectDist:        25,       // px – 이 거리 이내 통과 시 퍼펙트
+    ultraDist:          10,       // px – 이 거리 이내 통과 시 ULTRA CLOSE!
+    slowMoDuration:     280,      // ms – 퍼펙트 슬로모션
+
+    // 장애물 / 아이템
+    obstacleBase:       3,
+    obstacleRandExtra:  2.5,
+    obstacleInterval:   1400,
+    itemInterval:       2800,
+    boosterDuration:    5000,
+    boosterMultipliers: [1.0, 1.5, 2.0, 2.5],
+    diffRampInterval:   15000,
+    diffRampAmount:     0.15,
+    laneCount:          3,
+    scrollSegmentH:     80,
 };
 
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
 //  ROAD
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
 const road = {
     width:       300,
     grassColor:  '#2d6a2d',
     asphalt:     '#2c2c2c',
     lineColor:   '#e8cc00',
     borderColor: '#f0f0f0',
-    get leftEdge()  { return (canvas.width  - this.width) / 2; },
-    get rightEdge() { return this.leftEdge  + this.width;      },
-    laneWidth()     { return this.width / CFG.laneCount;       },
-    scrollY:     0,  // 도로 스크롤 오프셋
+    get leftEdge()  { return (canvas.width - this.width) / 2; },
+    get rightEdge() { return this.leftEdge + this.width; },
+    laneWidth()     { return this.width / CFG.laneCount; },
+    scrollY: 0,
 };
 
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
 //  GAME STATE
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
 const game = {
-    isRunning:  false,
-    isPaused:   false,
-    isOver:     false,
-    score:      0,
-    distance:   0,
-    bestScore:  parseInt(localStorage.getItem('bestScore') || '0'),
-    combo:      0,
-    maxCombo:   0,
-    diffBonus:  0,   // 난이도 보너스 (시간에 따라 증가)
-    startTime:  0,
-    lastDiffRamp: 0,
+    isRunning: false, isPaused: false, isOver: false,
+    score: 0, distance: 0,
+    bestScore: parseInt(localStorage.getItem('bestScore') || '0'),
+    combo: 0, maxCombo: 0,
+    nearMissCount: 0, perfectCount: 0,
+    diffBonus: 0, startTime: 0, lastDiffRamp: 0,
+    driftGauge: 0,   // 0~1
+
+    // 슬로모션
+    slowMo: false, slowMoTimer: 0,
+    timeScale: 1.0,
 };
 
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
+//  SCREEN SHAKE  (강화: 회전 포함)
+// ════════════════════════════════════════════════════════
+const shake = { x:0, y:0, rot:0, timer:0, strength:0, rotStrength:0 };
+
+function triggerShake(strength, duration, rotStrength) {
+    shake.strength    = Math.max(shake.strength, strength);
+    shake.timer       = Math.max(shake.timer, duration);
+    shake.rotStrength = rotStrength || strength * 0.003;
+}
+
+function updateShake(dt) {
+    if (shake.timer <= 0) {
+        shake.x = 0; shake.y = 0; shake.rot = 0; return;
+    }
+    shake.timer -= dt;
+    const decay = Math.max(0, shake.timer / 300);
+    const s  = shake.strength * decay;
+    shake.x  = (Math.random() - 0.5) * s * 2;
+    shake.y  = (Math.random() - 0.5) * s * 2;
+    shake.rot = (Math.random() - 0.5) * shake.rotStrength * decay;
+}
+
+// ════════════════════════════════════════════════════════
+//  FLASH OVERLAY
+// ════════════════════════════════════════════════════════
+function flashScreen(color, duration) {
+    const el = document.getElementById('flashOverlay');
+    el.style.background = color;
+    el.style.opacity = '0.55';
+    clearTimeout(el._ft);
+    el._ft = setTimeout(() => { el.style.opacity = '0'; }, duration || 80);
+}
+
+// ════════════════════════════════════════════════════════
 //  PLAYER
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
 const player = {
-    width:    42,
-    height:   66,
-    x:        0,
-    y:        0,
-    speed:    0,
-    targetX:  0,
+    width:  42, height: 66,
+    x: 0, y: 0,
+    speed: 0,
+
+    // ── 조향 관성 ──
+    velX:      0,       // 횡 속도 (px/frame)
+    tiltAngle: 0,       // 기울기 렌더링용 (라디안)
+    tiltTarget: 0,      // 목표 기울기 (스무딩)
+
+    // ── 스텝(대시) ──
+    stepActive:      false,
+    stepTimer:       0,
+    stepCooldown:    0,
+    stepDir:         0,
+    stepAfterImages: [],  // [{x,y,alpha}]
+
+    // ── 스키드 마크 (지속) ──
+    skidMarks:  [],
+    wasSkidding: false,
+
     reset() {
-        this.x       = canvas.width / 2 - this.width / 2;
-        this.y       = canvas.height - 160;
-        this.speed   = 0;
-        this.targetX = canvas.width / 2 - this.width / 2;
+        this.x = canvas.width / 2 - this.width / 2;
+        this.y = canvas.height - 160;
+        this.speed = 0;
+        this.velX  = 0;
+        this.tiltAngle  = 0;
+        this.tiltTarget = 0;
+        this.stepActive = false;
+        this.stepTimer  = 0;
+        this.stepCooldown = 0;
+        this.stepDir = 0;
+        this.stepAfterImages = [];
+        this.skidMarks  = [];
+        this.wasSkidding = false;
     },
 };
 
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
 //  BOOSTER
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
 const booster = {
-    level:         0,
-    remainingTime: 0,
+    level: 0, remainingTime: 0,
     activate() {
         if (this.level < 3) this.level++;
         this.remainingTime = CFG.boosterDuration;
+        triggerShake(6, 150, 0.008);
+        flashScreen('rgba(255,220,0,1)', 100);
+        vibrate([20, 10, 40]);
     },
     update(dt) {
-        if (this.level === 0) return;
-        this.remainingTime -= dt;
-        if (this.remainingTime <= 0) {
-            this.level         = 0;
-            this.remainingTime = 0;
-        }
+        if (!this.level) return;
+        this.remainingTime -= dt * game.timeScale;
+        if (this.remainingTime <= 0) { this.level = 0; this.remainingTime = 0; }
     },
     multiplier() { return CFG.boosterMultipliers[this.level]; },
     reset() { this.level = 0; this.remainingTime = 0; },
 };
 
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
+//  PARTICLES
+// ════════════════════════════════════════════════════════
+const particles = [];
+
+function spawnParticles(cx, cy, count, colorFn, opts) {
+    opts = opts || {};
+    for (let i = 0; i < count; i++) {
+        const angle  = (opts.angle !== undefined ? opts.angle : Math.random() * Math.PI * 2);
+        const spread = opts.spread || Math.PI * 2;
+        const a      = angle - spread/2 + Math.random() * spread;
+        const speed  = (opts.minSpd || 1.5) + Math.random() * (opts.maxSpd || 4);
+        particles.push({
+            x: cx + (Math.random() - 0.5) * (opts.scatter || 0),
+            y: cy + (Math.random() - 0.5) * (opts.scatter || 0),
+            vx: Math.cos(a) * speed,
+            vy: Math.sin(a) * speed + (opts.gravBias || -1),
+            r:  (opts.minR || 3) + Math.random() * (opts.maxR || 4),
+            alpha: 1,
+            decay: opts.decay || 0.025,
+            color: colorFn(i),
+            shape: opts.shape || 'circle',   // 'circle' | 'rect' | 'spark'
+        });
+    }
+}
+
+function updateParticles(dt) {
+    const ts = game.timeScale;
+    for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x    += p.vx * ts;
+        p.y    += p.vy * ts;
+        p.vy   += 0.18 * ts;
+        p.alpha -= p.decay * ts;
+        if (p.alpha <= 0) particles.splice(i, 1);
+    }
+}
+
+function drawParticles() {
+    particles.forEach(p => {
+        ctx.globalAlpha = Math.max(0, p.alpha);
+        ctx.fillStyle   = p.color;
+        if (p.shape === 'rect') {
+            ctx.fillRect(p.x - p.r/2, p.y - p.r/2, p.r, p.r * 2);
+        } else if (p.shape === 'spark') {
+            ctx.strokeStyle = p.color;
+            ctx.lineWidth   = p.r * 0.5;
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p.x - p.vx * 3, p.y - p.vy * 3);
+            ctx.stroke();
+        } else {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    });
+    ctx.globalAlpha = 1;
+}
+
+// ── 연속 스키드 마크 스트립 (바퀴별 이전 위치 기록) ──
+const skidStrips = [];   // [{x,y,alpha}]  per wheel (index 0=L,1=R)
+const skidWheelPrev = [{x:0,y:0,active:false},{x:0,y:0,active:false}];
+
+function recordSkid(isSkidding) {
+    const lx = player.x + player.width * 0.18;
+    const rx = player.x + player.width * 0.82;
+    const sy = player.y + player.height * 0.82;
+
+    if (isSkidding) {
+        [0,1].forEach(k => {
+            const wx = k===0 ? lx : rx;
+            if (skidWheelPrev[k].active) {
+                skidStrips.push({
+                    x1: skidWheelPrev[k].x, y1: skidWheelPrev[k].y,
+                    x2: wx, y2: sy,
+                    alpha: 0.55,
+                });
+            }
+            skidWheelPrev[k] = { x: wx, y: sy, active: true };
+        });
+    } else {
+        skidWheelPrev[0].active = false;
+        skidWheelPrev[1].active = false;
+    }
+}
+
+function updateSkidStrips(ts) {
+    for (let i = skidStrips.length - 1; i >= 0; i--) {
+        skidStrips[i].alpha -= 0.003 * ts;
+        if (skidStrips[i].alpha <= 0) skidStrips.splice(i, 1);
+    }
+}
+
+function drawSkidStrips() {
+    skidStrips.forEach(s => {
+        ctx.globalAlpha = s.alpha;
+        ctx.strokeStyle = '#0a0a0a';
+        ctx.lineWidth   = 4;
+        ctx.lineCap     = 'round';
+        ctx.beginPath();
+        ctx.moveTo(s.x1, s.y1);
+        ctx.lineTo(s.x2, s.y2);
+        ctx.stroke();
+    });
+    ctx.globalAlpha = 1;
+    ctx.lineCap = 'butt';
+}
+
+// ════════════════════════════════════════════════════════
+//  SPEED LINES  (고속 배경 선)
+// ════════════════════════════════════════════════════════
+const speedLines = [];
+let speedLineTimer = 0;
+
+function updateSpeedLines(dt, ts) {
+    if (player.speed > 9) {
+        speedLineTimer -= dt;
+        if (speedLineTimer < 0) {
+            const sideL = Math.random() < 0.5;
+            const baseX = sideL ? road.leftEdge - 2 : road.rightEdge + 2;
+            speedLines.push({
+                x: baseX + (Math.random() - 0.5) * 40,
+                y: Math.random() * canvas.height,
+                len: 30 + Math.random() * 60,
+                alpha: 0.5 + Math.random() * 0.3,
+                speed: 18 + player.speed * 0.6,
+                side: sideL ? -1 : 1,
+            });
+            speedLineTimer = 30 - player.speed * 1.5;
+        }
+    }
+    for (let i = speedLines.length - 1; i >= 0; i--) {
+        const sl = speedLines[i];
+        sl.y    += sl.speed * ts;
+        sl.alpha -= 0.04 * ts;
+        if (sl.y > canvas.height + sl.len || sl.alpha <= 0) speedLines.splice(i, 1);
+    }
+}
+
+function drawSpeedLines() {
+    if (player.speed < 9) return;
+    const intensity = Math.min((player.speed - 9) / 9, 1);
+    speedLines.forEach(sl => {
+        ctx.globalAlpha = sl.alpha * intensity;
+        ctx.strokeStyle = 'rgba(200,220,255,0.8)';
+        ctx.lineWidth   = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(sl.x, sl.y);
+        ctx.lineTo(sl.x + sl.side * sl.len * 0.15, sl.y + sl.len);
+        ctx.stroke();
+    });
+    ctx.globalAlpha = 1;
+}
+
+// ════════════════════════════════════════════════════════
 //  OBSTACLES & ITEMS
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
 const obstacles = [];
 const items     = [];
 let lastObstacleSpawn = 0;
@@ -493,14 +549,11 @@ function spawnObstacle() {
     const lane = Math.floor(Math.random() * CFG.laneCount);
     const cx   = road.leftEdge + lane * lw + lw / 2;
     obstacles.push({
-        x:        cx - 18,
-        y:        -70,
-        width:    36,
-        height:   58,
-        speed:    CFG.obstacleBase + Math.random() * CFG.obstacleRandExtra + game.diffBonus,
-        isPushed: false,
-        scored:   false,
-        color:    `hsl(${0 + Math.random()*20 | 0}, 80%, 45%)`,
+        x: cx - 18, y: -70, width: 36, height: 58,
+        speed: CFG.obstacleBase + Math.random() * CFG.obstacleRandExtra + game.diffBonus,
+        isPushed: false, scored: false, passed: false,
+        vx: 0, tilt: 0,
+        color: `hsl(${Math.random()*20|0}, 80%, 45%)`,
     });
 }
 
@@ -508,54 +561,209 @@ function spawnBoosterItem() {
     const lw   = road.laneWidth();
     const lane = Math.floor(Math.random() * CFG.laneCount);
     const cx   = road.leftEdge + lane * lw + lw / 2;
-    items.push({
-        x:         cx,
-        y:         -50,
-        width:     32,
-        height:    32,
-        speed:     3.5,
-        collected: false,
+    items.push({ x: cx, y: -50, width: 32, height: 32, speed: 3.5, collected: false });
+}
+
+// ════════════════════════════════════════════════════════
+//  VIBRATE HELPER
+// ════════════════════════════════════════════════════════
+function vibrate(pattern) {
+    try { navigator.vibrate && navigator.vibrate(pattern); } catch(e) {}
+}
+
+// ════════════════════════════════════════════════════════
+//  FLOATING SCORE TEXT
+// ════════════════════════════════════════════════════════
+const floatTexts = [];
+function addFloatText(text, x, y, color, size) {
+    floatTexts.push({
+        text, x, y,
+        color: color || '#fff',
+        alpha: 1, vy: -2.2,
+        size: size || 20,
+        scale: 1.4,   // 시작 크기 1.4배 → 1.0으로 shrink
     });
 }
 
-// ══════════════════════════════════════════════
-//  TOUCH / MOUSE CONTROL
-// ══════════════════════════════════════════════
-let touchActive = false;
-let touchLastX  = 0;
+// ════════════════════════════════════════════════════════
+//  JUDGEMENT POPUP  (PERFECT / NEAR MISS)
+// ════════════════════════════════════════════════════════
+function showJudgement(type) {
+    const el = document.getElementById('judgement');
+
+    if (type === 'ultra') {
+        el.textContent  = '🔥 ULTRA CLOSE!';
+        el.style.color  = '#FF3366';
+        el.style.fontSize = '52px';
+        const vig = document.getElementById('vignette');
+        vig.style.background = 'radial-gradient(ellipse at center,transparent 50%,rgba(255,0,80,.5) 100%)';
+        vig.style.opacity = '1';
+        setTimeout(() => { vig.style.opacity = '0'; }, 350);
+        game.slowMo      = true;
+        game.slowMoTimer = CFG.slowMoDuration * 1.2;
+        game.timeScale   = 0.22;
+        triggerShake(8, 220, 0.01);
+        flashScreen('rgba(255,50,50,1)', 60);
+        vibrate([15, 8, 15, 8, 25]);
+
+    } else if (type === 'perfect') {
+        el.textContent  = '✨ PERFECT!';
+        el.style.color  = '#00FFD0';
+        el.style.fontSize = '48px';
+        const vig = document.getElementById('vignette');
+        vig.style.background = 'radial-gradient(ellipse at center,transparent 50%,rgba(0,255,200,.35) 100%)';
+        vig.style.opacity = '1';
+        setTimeout(() => { vig.style.opacity = '0'; }, 300);
+        game.slowMo      = true;
+        game.slowMoTimer = CFG.slowMoDuration;
+        game.timeScale   = 0.28;
+        triggerShake(6, 180, 0.007);
+        vibrate([20, 10, 20]);
+
+    } else {
+        el.textContent  = '💨 NEAR!';
+        el.style.color  = '#FFD700';
+        el.style.fontSize = '36px';
+        triggerShake(3, 80);
+        vibrate([10]);
+    }
+
+    el.style.opacity = '1';
+    clearTimeout(el._t);
+    el._t = setTimeout(() => { el.style.opacity = '0'; }, 750);
+}
+
+// ════════════════════════════════════════════════════════
+//  COMBO
+// ════════════════════════════════════════════════════════
+let comboTimer = null;
+function triggerCombo() {
+    game.combo++;
+    if (game.combo > game.maxCombo) game.maxCombo = game.combo;
+    if (game.combo >= 3) {
+        const el = document.getElementById('comboDisplay');
+        const colors = ['','','','#FFD700','#FF9800','#FF5722','#F44336','#E91E63','#9C27B0'];
+        const c = colors[Math.min(game.combo, colors.length-1)] || '#FF0080';
+        el.textContent = `${game.combo}x 콤보!`;
+        el.style.color = c;
+        el.style.textShadow = `0 0 20px ${c}`;
+        el.style.fontSize = `${28 + Math.min(game.combo, 10) * 1.5}px`;
+        el.style.opacity = '1';
+        clearTimeout(el._t);
+        el._t = setTimeout(() => { el.style.opacity = '0'; }, 900);
+    }
+    if (comboTimer) clearTimeout(comboTimer);
+    comboTimer = setTimeout(() => { game.combo = 0; }, 3000);
+}
+
+// ════════════════════════════════════════════════════════
+//  TOUCH / INPUT  (관성 + 플릭 감지)
+// ════════════════════════════════════════════════════════
+let touchActive  = false;
+let touchLastX   = 0;
+let touchLastT   = 0;
+let touchVelBuf  = [];   // [{dx, dt}]
+let touchDeltaAccum = 0; // 현재 드래그 누적 변위
 
 function onPointerDown(e) {
     e.preventDefault();
+    if (!game.isRunning) return;
     touchActive = true;
     const t = e.touches ? e.touches[0] : e;
     touchLastX      = t.clientX;
-    player.targetX  = t.clientX - player.width / 2;
+    touchLastT      = Date.now();
+    touchVelBuf     = [];
+    touchDeltaAccum = 0;
 }
 
 function onPointerMove(e) {
-    if (!touchActive) return;
+    if (!touchActive || !game.isRunning) return;
     e.preventDefault();
     const t   = e.touches ? e.touches[0] : e;
+    const now = Date.now();
     const dx  = t.clientX - touchLastX;
-    touchLastX       = t.clientX;
-    player.targetX  += dx;
+    const dt  = Math.max(1, now - touchLastT);
+
+    // 속도 버퍼 (최근 4개)
+    touchVelBuf.push({ dx, dt });
+    if (touchVelBuf.length > 4) touchVelBuf.shift();
+
+    touchDeltaAccum += Math.abs(dx);
+
+    // ── 관성 입력: 드래그 속도를 velX에 누적 ──
+    // dx/dt = 픽셀/ms, ×16 = 픽셀/frame(60fps), ×steerAccel = 반응 비율
+    const rawVel    = dx / dt * 16;
+    const inputVel  = rawVel * CFG.steerAccel * 16;
+    player.velX    += inputVel;
+
+    touchLastX = t.clientX;
+    touchLastT = now;
 }
 
 function onPointerUp(e) {
+    if (!touchActive) return;
     e.preventDefault();
     touchActive = false;
+
+    // ── 플릭 감지 ──
+    if (touchVelBuf.length === 0) return;
+    const totalDX = touchVelBuf.reduce((s,b) => s + b.dx, 0);
+    const totalDT = touchVelBuf.reduce((s,b) => s + b.dt, 0);
+    const avgVel  = totalDX / totalDT * 16;
+
+    if (Math.abs(avgVel) > CFG.flickThreshold &&
+        totalDT < CFG.flickTimeWindow &&
+        player.stepCooldown <= 0) {
+        triggerStep(Math.sign(avgVel));
+    }
 }
 
-canvas.addEventListener('touchstart',  onPointerDown, { passive: false });
-canvas.addEventListener('touchmove',   onPointerMove, { passive: false });
-canvas.addEventListener('touchend',    onPointerUp,   { passive: false });
-canvas.addEventListener('mousedown',   onPointerDown);
-canvas.addEventListener('mousemove',   onPointerMove);
-canvas.addEventListener('mouseup',     onPointerUp);
+canvas.addEventListener('touchstart',  onPointerDown, { passive:false });
+canvas.addEventListener('touchmove',   onPointerMove, { passive:false });
+canvas.addEventListener('touchend',    onPointerUp,   { passive:false });
+canvas.addEventListener('touchcancel', onPointerUp,   { passive:false });
+canvas.addEventListener('mousedown',  onPointerDown);
+canvas.addEventListener('mousemove',  onPointerMove);
+canvas.addEventListener('mouseup',    onPointerUp);
 
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
+//  STEP (미니 대시)
+// ════════════════════════════════════════════════════════
+function triggerStep(dir) {
+    player.stepActive   = true;
+    player.stepTimer    = CFG.stepDuration;
+    player.stepCooldown = CFG.stepCooldown;
+    player.stepDir      = dir;
+    player.velX        += dir * CFG.stepForce;
+
+    // 스키드 연기 파티클
+    spawnParticles(
+        player.x + player.width / 2,
+        player.y + player.height * 0.85,
+        12,
+        () => `hsl(${200+Math.random()*30|0},${8+Math.random()*10|0}%,${65+Math.random()*20|0}%)`,
+        { minSpd:1.5, maxSpd:4, gravBias:0.5, decay:0.035,
+          angle: Math.PI/2, spread: Math.PI * 0.8, shape:'circle' }
+    );
+    // 스파크
+    spawnParticles(
+        player.x + (dir > 0 ? player.width*0.9 : player.width*0.1),
+        player.y + player.height * 0.8,
+        6,
+        () => `hsl(${30+Math.random()*30|0},100%,70%)`,
+        { minSpd:2, maxSpd:5, gravBias:-0.5, decay:0.05,
+          angle: dir > 0 ? 0 : Math.PI, spread: Math.PI * 0.6, shape:'spark' }
+    );
+
+    triggerShake(4, 100, 0.005);
+    flashScreen(`rgba(0,229,255,0.35)`, 60);
+    addFloatText('STEP!', player.x + player.width/2, player.y - 10, '#00e5ff', 18);
+    vibrate([8, 4, 12]);
+}
+
+// ════════════════════════════════════════════════════════
 //  COLLISION
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
 function rectsOverlap(a, b, margin) {
     margin = margin || 0;
     return a.x + margin < b.x + b.width  &&
@@ -564,60 +772,126 @@ function rectsOverlap(a, b, margin) {
            a.y + a.height - margin > b.y;
 }
 
-// ══════════════════════════════════════════════
-//  FLOATING SCORE TEXT
-// ══════════════════════════════════════════════
-const floatTexts = [];
-function addFloatText(text, x, y, color) {
-    floatTexts.push({ text, x, y, color: color || '#fff', alpha: 1.0, vy: -1.5 });
+function rectHorizDist(a, b) {
+    const aL = a.x, aR = a.x + a.width;
+    const bL = b.x, bR = b.x + b.width;
+    if (aR < bL) return bL - aR;
+    if (bR < aL) return aL - bR;
+    return 0;
 }
 
-// ══════════════════════════════════════════════
-//  COMBO
-// ══════════════════════════════════════════════
-let comboTimer = null;
-function triggerCombo() {
-    game.combo++;
-    if (game.combo > game.maxCombo) game.maxCombo = game.combo;
-    if (game.combo >= 3) showCombo();
-    if (comboTimer) clearTimeout(comboTimer);
-    comboTimer = setTimeout(() => { game.combo = 0; }, 3000);
-}
+// ════════════════════════════════════════════════════════
+//  UPDATE PLAYER
+// ════════════════════════════════════════════════════════
+function updatePlayer(dt) {
+    const ts = game.timeScale;
 
-function showCombo() {
-    const el = document.getElementById('comboDisplay');
-    el.textContent = `${game.combo}x 콤보!`;
-    el.style.opacity = '1';
-    clearTimeout(el._timer);
-    el._timer = setTimeout(() => { el.style.opacity = '0'; }, 900);
-}
+    // ── 스텝 타이머 ──
+    if (player.stepActive) {
+        player.stepTimer -= dt;
+        if (player.stepTimer <= 0) player.stepActive = false;
+    }
+    if (player.stepCooldown > 0) player.stepCooldown -= dt;
 
-// ══════════════════════════════════════════════
-//  UPDATE
-// ══════════════════════════════════════════════
-function updatePlayer() {
-    // Smooth follow
-    const dx    = player.targetX - player.x;
-    player.x   += dx * CFG.playerEasing;
+    // ── 관성 횡 이동 ──
+    const friction = touchActive ? CFG.steerFrictionDrag : CFG.steerFriction;
+    player.velX *= friction;
 
-    // Clamp to screen
-    player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
+    // 손 뗐을 때 약한 도로 중앙 복귀 (선택적)
+    if (!touchActive && CFG.returnForce > 0) {
+        const roadCenter = road.leftEdge + road.width / 2;
+        const playerCenter = player.x + player.width / 2;
+        const diff = roadCenter - playerCenter;
+        player.velX += diff * CFG.returnForce * 0.015;
+    }
 
-    // On road?
-    const onRoad = player.x >= road.leftEdge &&
-                   player.x + player.width <= road.rightEdge;
+    // 최대 속도 클램프
+    player.velX = Math.max(-CFG.steerMax, Math.min(CFG.steerMax, player.velX));
 
+    // 오버스티어: 화면 흔들림 + 연기
+    const absVelX = Math.abs(player.velX);
+    if (absVelX > CFG.oversteerThresh) {
+        const excess = absVelX - CFG.oversteerThresh;
+        triggerShake(excess * 0.15, 50);
+        if (Math.random() < excess * 0.04) {
+            spawnParticles(
+                player.x + player.width/2,
+                player.y + player.height * 0.85,
+                2,
+                () => `rgba(180,180,180,${0.4+Math.random()*0.3})`,
+                { minSpd:0.5, maxSpd:1.5, gravBias:0.3, decay:0.04, minR:2, maxR:4 }
+            );
+        }
+    }
+
+    // 위치 업데이트
+    player.x += player.velX * ts;
+    player.x  = Math.max(0, Math.min(canvas.width - player.width, player.x));
+
+    // 기울기 스무딩 (tiltAngle이 tiltTarget을 쫓아가는 방식)
+    player.tiltTarget = player.velX / CFG.steerMax * 0.15;
+    player.tiltAngle += (player.tiltTarget - player.tiltAngle) * 0.25;
+
+    // ── 전진 속도 ──
+    const onRoad = player.x >= road.leftEdge && player.x + player.width <= road.rightEdge;
     const targetSpd = CFG.baseSpeed * booster.multiplier();
-
     if (onRoad) {
-        if (player.speed < targetSpd) player.speed += CFG.acceleration;
+        if (player.speed < targetSpd) player.speed += CFG.acceleration * ts;
         else                          player.speed  = targetSpd;
     } else {
-        player.speed -= CFG.offRoadDecel;
+        player.speed -= CFG.offRoadDecel * ts;
+        // 오프로드 흙 먼지
+        if (Math.random() < 0.2) {
+            const ex = player.x < road.leftEdge ? player.x : player.x + player.width;
+            spawnParticles(ex, player.y + player.height * 0.6, 2,
+                () => `hsl(90,${40+Math.random()*20|0}%,${35+Math.random()*15|0}%)`,
+                { minSpd:0.5, maxSpd:2, gravBias:0, decay:0.05, minR:2, maxR:5 });
+        }
     }
     player.speed = Math.max(0, Math.min(player.speed, CFG.maxSpeed * booster.multiplier()));
+
+    // ── 스키드 판정 ──
+    const isSkidding = absVelX > CFG.oversteerThresh * 0.6 || player.stepActive;
+    recordSkid(isSkidding);
+
+    // ── 잔상 기록 (스텝 중) ──
+    if (player.stepActive) {
+        player.stepAfterImages.push({ x: player.x, y: player.y, alpha: 0.5 });
+        if (player.stepAfterImages.length > 6) player.stepAfterImages.shift();
+    } else {
+        player.stepAfterImages = [];
+    }
+
+    // ── 드리프트 게이지 ──
+    if (absVelX > CFG.driftThresh) {
+        game.driftGauge = Math.min(1, game.driftGauge + CFG.driftFillRate * absVelX);
+    } else {
+        game.driftGauge = Math.max(0, game.driftGauge - CFG.driftDecayRate);
+    }
+    // 게이지 가득 차면 보너스 점수
+    if (game.driftGauge >= 1) {
+        game.driftGauge = 0;
+        game.score += 30;
+        addFloatText('🔥 드리프트 +30', player.x + player.width/2, player.y - 40, '#FF6600', 20);
+        triggerShake(5, 120);
+        vibrate([15]);
+    }
+
+    // ── 바람 파티클 (고속) ──
+    if (player.speed > 10 && Math.random() < 0.25) {
+        spawnParticles(
+            player.x + Math.random() * player.width,
+            player.y + player.height,
+            1,
+            () => 'rgba(200,220,255,0.5)',
+            { minSpd:0.3, maxSpd:1.2, gravBias:2, decay:0.05, minR:1, maxR:2 }
+        );
+    }
 }
 
+// ════════════════════════════════════════════════════════
+//  UPDATE DIFFICULTY
+// ════════════════════════════════════════════════════════
 function updateDifficulty(now) {
     if (now - game.lastDiffRamp > CFG.diffRampInterval) {
         game.diffBonus    += CFG.diffRampAmount;
@@ -625,464 +899,621 @@ function updateDifficulty(now) {
     }
 }
 
-function updateObstacles(now) {
+// ════════════════════════════════════════════════════════
+//  UPDATE SLOW-MO
+// ════════════════════════════════════════════════════════
+function updateSlowMo(dt) {
+    if (!game.slowMo) return;
+    game.slowMoTimer -= dt;
+    if (game.slowMoTimer <= 0) {
+        game.slowMo    = false;
+        game.timeScale = 1.0;
+    }
+}
+
+// ════════════════════════════════════════════════════════
+//  UPDATE OBSTACLES  (니어미스 판정 + 3단계)
+// ════════════════════════════════════════════════════════
+function updateObstacles(now, dt) {
+    const ts = game.timeScale;
+
     for (let i = obstacles.length - 1; i >= 0; i--) {
         const obs = obstacles[i];
-        obs.y += obs.speed + player.speed;
+        obs.y  += (obs.speed + player.speed) * ts;
+        obs.x  += obs.vx * ts;
+        obs.vx *= 0.90;
+        obs.tilt = obs.vx * 0.008;
 
+        if (obs.x + obs.width < 0 || obs.x > canvas.width) {
+            obstacles.splice(i, 1); continue;
+        }
         if (obs.y > canvas.height + 10) {
             obstacles.splice(i, 1);
             if (!obs.scored) {
                 game.score += 10;
                 triggerCombo();
-                addFloatText('+10', obs.x + obs.width / 2, canvas.height - 80, '#aaffaa');
+                addFloatText('+10', obs.x + obs.width/2, canvas.height - 80, '#aaffaa');
             }
             continue;
         }
 
-        if (rectsOverlap(player, obs, 6)) {
+        // ── 충돌 판정 ──
+        if (rectsOverlap(player, obs, 5)) {
             if (booster.level === 3) {
-                // 파괴
-                addFloatText('💥 +50', obs.x + obs.width / 2, obs.y, '#FF6B6B');
+                // 🔥 파괴
+                const cx = obs.x + obs.width/2, cy = obs.y + obs.height/2;
+                spawnParticles(cx, cy, 18, () => obs.color,
+                    { minSpd:2.5, maxSpd:7, decay:0.02, shape:'rect' });
+                spawnParticles(cx, cy, 8, () => '#FFD700',
+                    { minSpd:1.5, maxSpd:4, decay:0.025 });
+                spawnParticles(cx, cy, 6, () => '#FFF',
+                    { minSpd:3, maxSpd:8, decay:0.04, shape:'spark' });
                 obstacles.splice(i, 1);
                 game.score += 50;
                 triggerCombo();
+                triggerShake(12, 220, 0.012);
+                flashScreen('rgba(255,180,0,1)', 70);
+                vibrate([50, 20, 50]);
+                addFloatText('💥 +50', cx, cy, '#FF6B6B', 28);
+                continue;
+
             } else if (booster.level === 2) {
-                // 밀쳐냄
+                // 💨 밀치기
                 if (!obs.isPushed) {
                     obs.isPushed = true;
-                    obs.speed   += 6;
-                    const dir    = (obs.x + obs.width / 2 < player.x + player.width / 2) ? -1 : 1;
-                    obs.x       += dir * 110;
-                    game.score  += 20;
+                    const dir  = obs.x + obs.width/2 < player.x + player.width/2 ? -1 : 1;
+                    obs.vx     = dir * 14;
+                    obs.speed += 6;
+                    game.score += 20;
                     triggerCombo();
-                    addFloatText('💨 +20', obs.x, obs.y - 20, '#FFBB44');
+                    triggerShake(7, 130, 0.007);
+                    flashScreen('rgba(255,120,0,0.5)', 50);
+                    vibrate([20, 8, 20]);
+                    spawnParticles(
+                        obs.x + obs.width/2, obs.y + obs.height/2,
+                        8, () => '#FFBB44',
+                        { minSpd:2, maxSpd:4, decay:0.035,
+                          angle: dir > 0 ? 0 : Math.PI, spread: Math.PI * 0.7 }
+                    );
+                    addFloatText('💨 +20', obs.x + obs.width/2, obs.y - 20, '#FFBB44', 22);
                 }
+                continue;
+
             } else {
                 triggerGameOver();
+                return;
             }
         }
+
+        // ── 니어미스 / 퍼펙트 / 울트라 판정 ──
+        if (!obs.passed &&
+            obs.y + obs.height > player.y &&
+            obs.y < player.y + player.height) {
+
+            const hDist = rectHorizDist(player, obs);
+
+            if (hDist > 0 && hDist <= CFG.nearMissDist) {
+                obs.passed = true;
+
+                if (hDist <= CFG.ultraDist) {
+                    // 🔥 ULTRA CLOSE
+                    game.score        += 60;
+                    game.perfectCount++;
+                    game.nearMissCount++;
+                    showJudgement('ultra');
+                    triggerCombo();
+                    addFloatText('🔥 ULTRA +60', player.x + player.width/2,
+                                 player.y - 35, '#FF3366', 26);
+                    spawnParticles(
+                        player.x + player.width/2, player.y + player.height/2,
+                        16, (i) => `hsl(${340+i*10},100%,65%)`,
+                        { minSpd:2, maxSpd:5, decay:0.025 }
+                    );
+
+                } else if (hDist <= CFG.perfectDist) {
+                    // ✨ PERFECT
+                    game.score        += 40;
+                    game.perfectCount++;
+                    game.nearMissCount++;
+                    showJudgement('perfect');
+                    triggerCombo();
+                    addFloatText('✨ PERFECT +40', player.x + player.width/2,
+                                 player.y - 30, '#00FFD0', 24);
+                    spawnParticles(
+                        player.x + player.width/2, player.y,
+                        10, () => `hsl(${160+Math.random()*40|0},100%,70%)`,
+                        { minSpd:1.5, maxSpd:4, decay:0.03 }
+                    );
+
+                } else {
+                    // 💨 NEAR MISS
+                    game.score        += 15;
+                    game.nearMissCount++;
+                    showJudgement('near');
+                    triggerCombo();
+                    addFloatText('💨 NEAR +15', player.x + player.width/2,
+                                 player.y - 20, '#FFD700', 20);
+                    spawnParticles(
+                        player.x + player.width/2, player.y + player.height/2,
+                        5, () => '#FFD700',
+                        { minSpd:1, maxSpd:2.5, decay:0.04 }
+                    );
+                }
+            }
+        }
+        if (obs.y > player.y + player.height) obs.passed = true;
     }
 
-    // Spawn
-    if (now - lastObstacleSpawn > CFG.obstacleInterval - Math.min(game.diffBonus * 200, 700)) {
+    const interval = Math.max(600, CFG.obstacleInterval - game.diffBonus * 200);
+    if (now - lastObstacleSpawn > interval) {
         spawnObstacle();
         lastObstacleSpawn = now;
     }
 }
 
+// ════════════════════════════════════════════════════════
+//  UPDATE ITEMS
+// ════════════════════════════════════════════════════════
 function updateItems(now) {
+    const ts = game.timeScale;
     for (let i = items.length - 1; i >= 0; i--) {
         const item = items[i];
-        item.y += item.speed + player.speed * 0.4;
-
-        if (item.y > canvas.height + 10) {
-            items.splice(i, 1);
-            continue;
-        }
-
+        item.y += (item.speed + player.speed * 0.4) * ts;
+        if (item.y > canvas.height + 10) { items.splice(i, 1); continue; }
         if (!item.collected && rectsOverlap(player, {
-            x: item.x - item.width / 2, y: item.y - item.height / 2,
-            width: item.width, height: item.height
-        }, 0)) {
+            x: item.x - item.width/2, y: item.y - item.height/2,
+            width: item.width, height: item.height }, 0)) {
             item.collected = true;
             items.splice(i, 1);
             booster.activate();
             game.score += 100;
-            addFloatText('⚡ +100', item.x, item.y - 10, '#FFD700');
+            addFloatText('⚡ +100', item.x, item.y - 10, '#FFD700', 24);
+            spawnParticles(item.x, item.y, 16,
+                (j) => `hsl(${40+j*10},100%,65%)`,
+                { minSpd:2, maxSpd:6, decay:0.025 });
         }
     }
-
     if (now - lastItemSpawn > CFG.itemInterval) {
         spawnBoosterItem();
         lastItemSpawn = now;
     }
 }
 
+// ════════════════════════════════════════════════════════
+//  UPDATE FLOAT TEXTS  (scale shrink + 상승)
+// ════════════════════════════════════════════════════════
 function updateFloatTexts() {
+    const ts = game.timeScale;
     for (let i = floatTexts.length - 1; i >= 0; i--) {
         const ft = floatTexts[i];
-        ft.y     += ft.vy;
-        ft.alpha -= 0.018;
-        if (ft.alpha <= 0) { floatTexts.splice(i, 1); }
+        ft.y     += ft.vy * ts;
+        ft.alpha -= 0.018 * ts;
+        ft.scale  = Math.max(1.0, ft.scale - 0.04 * ts);
+        if (ft.alpha <= 0) floatTexts.splice(i, 1);
     }
 }
 
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
 //  DRAW HELPERS
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
 function drawGrass() {
-    // Left grass
+    // 잔디
     ctx.fillStyle = road.grassColor;
     ctx.fillRect(0, 0, road.leftEdge, canvas.height);
-    // Right grass
     ctx.fillRect(road.rightEdge, 0, canvas.width - road.rightEdge, canvas.height);
-
-    // Grass texture lines
-    ctx.strokeStyle = 'rgba(0,0,0,0.15)';
-    ctx.lineWidth   = 1;
-    const stripeW   = 18;
-    for (let sx = 0; sx < road.leftEdge; sx += stripeW) {
-        ctx.beginPath();
-        ctx.moveTo(sx, 0); ctx.lineTo(sx, canvas.height);
-        ctx.stroke();
+    // 잔디 결 (세로줄)
+    ctx.strokeStyle = 'rgba(0,0,0,0.1)'; ctx.lineWidth = 1;
+    for (let sx = 0; sx < road.leftEdge; sx += 18) {
+        ctx.beginPath(); ctx.moveTo(sx,0); ctx.lineTo(sx,canvas.height); ctx.stroke();
     }
-    for (let sx = road.rightEdge; sx < canvas.width; sx += stripeW) {
-        ctx.beginPath();
-        ctx.moveTo(sx, 0); ctx.lineTo(sx, canvas.height);
-        ctx.stroke();
+    for (let sx = road.rightEdge; sx < canvas.width; sx += 18) {
+        ctx.beginPath(); ctx.moveTo(sx,0); ctx.lineTo(sx,canvas.height); ctx.stroke();
     }
 }
 
 function drawRoad() {
-    // Asphalt
     ctx.fillStyle = road.asphalt;
     ctx.fillRect(road.leftEdge, 0, road.width, canvas.height);
 
-    // Scrolling dashes
-    const lw  = road.laneWidth();
+    // 노면 텍스처 (미세 노이즈)
+    ctx.fillStyle = 'rgba(255,255,255,0.015)';
+    for (let ty = 0; ty < canvas.height; ty += 12) {
+        if ((ty + (road.scrollY|0)) % 24 < 6) {
+            ctx.fillRect(road.leftEdge + 2, ty, road.width - 4, 3);
+        }
+    }
+
+    const lw     = road.laneWidth();
+    const segH   = CFG.scrollSegmentH;
+    const offset = road.scrollY % segH;
+
     ctx.setLineDash([28, 22]);
     ctx.lineWidth   = 3;
     ctx.strokeStyle = road.lineColor;
-
-    const segH  = CFG.scrollSegmentH;
-    const offset = road.scrollY % segH;
-
     for (let ln = 1; ln < CFG.laneCount; ln++) {
         const x = road.leftEdge + ln * lw;
         ctx.beginPath();
-        // draw extra segments above/below to fill screen
         for (let y = -segH + offset; y < canvas.height + segH; y += segH) {
-            ctx.moveTo(x, y);
-            ctx.lineTo(x, y + segH * 0.55);
+            ctx.moveTo(x, y); ctx.lineTo(x, y + segH * 0.55);
         }
         ctx.stroke();
     }
     ctx.setLineDash([]);
 
-    // Border
-    ctx.strokeStyle = road.borderColor;
-    ctx.lineWidth   = 5;
+    // 도로 경계
+    ctx.strokeStyle = road.borderColor; ctx.lineWidth = 5;
     ctx.beginPath();
     ctx.moveTo(road.leftEdge,  0); ctx.lineTo(road.leftEdge,  canvas.height);
     ctx.moveTo(road.rightEdge, 0); ctx.lineTo(road.rightEdge, canvas.height);
     ctx.stroke();
+
+    // 경계 그림자 (도로 가장자리 어두운 영역)
+    const shadow = ctx.createLinearGradient(road.leftEdge, 0, road.leftEdge + 20, 0);
+    shadow.addColorStop(0, 'rgba(0,0,0,0.25)');
+    shadow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = shadow;
+    ctx.fillRect(road.leftEdge, 0, 20, canvas.height);
+
+    const shadowR = ctx.createLinearGradient(road.rightEdge, 0, road.rightEdge - 20, 0);
+    shadowR.addColorStop(0, 'rgba(0,0,0,0.25)');
+    shadowR.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = shadowR;
+    ctx.fillRect(road.rightEdge - 20, 0, 20, canvas.height);
 }
 
-// Draw a simple pixel-art car shape
-function drawCar(x, y, w, h, bodyColor, lightColor, facing) {
-    // facing: 'down' = player, 'up' = obstacle
+function shiftColor(hex, amount) {
+    let r = parseInt(hex.slice(1,3),16),
+        g = parseInt(hex.slice(3,5),16),
+        b = parseInt(hex.slice(5,7),16);
+    r = Math.max(0,Math.min(255,r+amount));
+    g = Math.max(0,Math.min(255,g+amount));
+    b = Math.max(0,Math.min(255,b+amount));
+    return `rgb(${r},${g},${b})`;
+}
+
+function drawCar(x, y, w, h, bodyColor, lightColor, facing, tilt) {
     const isDown = facing !== 'up';
+    tilt = tilt || 0;
+
+    ctx.save();
+    ctx.translate(x + w/2, y + h/2);
+    ctx.rotate(tilt);
+    const ox = -w/2, oy = -h/2;
 
     // Shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.beginPath();
-    ctx.ellipse(x + w / 2, y + h * 0.85, w * 0.5, h * 0.12, 0, 0, Math.PI * 2);
+    ctx.ellipse(2, h*0.36, w*0.5, h*0.11, 0, 0, Math.PI*2);
     ctx.fill();
 
     // Body
     ctx.fillStyle = bodyColor;
-    // Main body rect
     ctx.beginPath();
-    ctx.roundRect(x + w * 0.08, y + h * 0.18, w * 0.84, h * 0.64, 4);
+    ctx.roundRect(ox+w*.08, oy+h*.18, w*.84, h*.64, 4);
+    ctx.fill();
+
+    // Body highlight
+    const bodyGrad = ctx.createLinearGradient(ox+w*.1, oy+h*.18, ox+w*.9, oy+h*.18);
+    bodyGrad.addColorStop(0, 'rgba(255,255,255,0.18)');
+    bodyGrad.addColorStop(0.4, 'rgba(255,255,255,0.05)');
+    bodyGrad.addColorStop(1, 'rgba(0,0,0,0.1)');
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.roundRect(ox+w*.08, oy+h*.18, w*.84, h*.64, 4);
     ctx.fill();
 
     // Bumper
-    ctx.fillStyle = shiftColor(bodyColor, -30);
+    ctx.fillStyle = shiftColor(bodyColor, -35);
     if (isDown) {
-        ctx.fillRect(x + w * 0.12, y + h * 0.78, w * 0.76, h * 0.1);
-        ctx.fillRect(x + w * 0.12, y + h * 0.12, w * 0.76, h * 0.07);
+        ctx.fillRect(ox+w*.12, oy+h*.78, w*.76, h*.1);
+        ctx.fillRect(ox+w*.12, oy+h*.12, w*.76, h*.07);
     } else {
-        ctx.fillRect(x + w * 0.12, y + h * 0.12, w * 0.76, h * 0.1);
-        ctx.fillRect(x + w * 0.12, y + h * 0.78, w * 0.76, h * 0.07);
+        ctx.fillRect(ox+w*.12, oy+h*.12, w*.76, h*.1);
+        ctx.fillRect(ox+w*.12, oy+h*.78, w*.76, h*.07);
     }
 
-    // Cabin / window
+    // Window
     ctx.fillStyle = 'rgba(120,200,255,0.7)';
     ctx.beginPath();
-    ctx.roundRect(x + w * 0.22, y + h * 0.28, w * 0.56, h * 0.32, 3);
+    ctx.roundRect(ox+w*.22, oy+h*.28, w*.56, h*.32, 3);
+    ctx.fill();
+    // Window glare
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.beginPath();
+    ctx.roundRect(ox+w*.24, oy+h*.3, w*.2, h*.1, 2);
     ctx.fill();
 
     // Headlights
     ctx.fillStyle = lightColor;
-    const ly = isDown ? y + h * 0.06 : y + h * 0.84;
-    ctx.fillRect(x + w * 0.1,  ly, w * 0.22, h * 0.07);
-    ctx.fillRect(x + w * 0.68, ly, w * 0.22, h * 0.07);
+    const ly = isDown ? oy+h*.06 : oy+h*.84;
+    ctx.beginPath(); ctx.roundRect(ox+w*.1, ly, w*.22, h*.07, 2); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(ox+w*.68, ly, w*.22, h*.07, 2); ctx.fill();
 
     // Wheels
-    ctx.fillStyle = '#111';
-    // front-left
-    ctx.fillRect(x,              y + h * 0.18, w * 0.1, h * 0.22);
-    // front-right
-    ctx.fillRect(x + w * 0.9,   y + h * 0.18, w * 0.1, h * 0.22);
-    // rear-left
-    ctx.fillRect(x,              y + h * 0.6,  w * 0.1, h * 0.22);
-    // rear-right
-    ctx.fillRect(x + w * 0.9,   y + h * 0.6,  w * 0.1, h * 0.22);
-}
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(ox,       oy+h*.18, w*.1,  h*.22);
+    ctx.fillRect(ox+w*.9,  oy+h*.18, w*.1,  h*.22);
+    ctx.fillRect(ox,       oy+h*.6,  w*.1,  h*.22);
+    ctx.fillRect(ox+w*.9,  oy+h*.6,  w*.1,  h*.22);
+    // Wheel rim
+    ctx.fillStyle = '#555';
+    ctx.fillRect(ox+w*.01,   oy+h*.21,  w*.07, h*.16);
+    ctx.fillRect(ox+w*.91,   oy+h*.21,  w*.07, h*.16);
+    ctx.fillRect(ox+w*.01,   oy+h*.63,  w*.07, h*.16);
+    ctx.fillRect(ox+w*.91,   oy+h*.63,  w*.07, h*.16);
 
-function shiftColor(hex, amount) {
-    // crude brightness shift
-    let r = parseInt(hex.slice(1,3),16);
-    let g = parseInt(hex.slice(3,5),16);
-    let b = parseInt(hex.slice(5,7),16);
-    r = Math.max(0, Math.min(255, r + amount));
-    g = Math.max(0, Math.min(255, g + amount));
-    b = Math.max(0, Math.min(255, b + amount));
-    return `rgb(${r},${g},${b})`;
+    ctx.restore();
 }
 
 function drawPlayer() {
-    const px = player.x;
-    const py = player.y;
-    const pw = player.width;
-    const ph = player.height;
+    const px = player.x, py = player.y;
+    const pw = player.width, ph = player.height;
 
-    // Boost aura
+    // 잔상 (스텝)
+    player.stepAfterImages.forEach((ai, i) => {
+        const t = (i + 1) / player.stepAfterImages.length;
+        ctx.globalAlpha = ai.alpha * t * 0.5;
+        ctx.fillStyle   = '#00e5ff';
+        ctx.fillRect(ai.x, ai.y, pw, ph);
+    });
+    ctx.globalAlpha = 1;
+
+    // 부스터 오라
     if (booster.level > 0) {
-        const auraColors = [
-            null,
-            'rgba(76,175,80,',
-            'rgba(255,152,0,',
-            'rgba(244,67,54,',
-        ];
-        const ac = auraColors[booster.level];
-        const pulse = booster.level === 3
-            ? 1 + 0.12 * Math.sin(Date.now() / 120)
-            : 1;
-        const auraR = pw * 1.3 * pulse;
-        const grad = ctx.createRadialGradient(
-            px + pw / 2, py + ph / 2, pw * 0.2,
-            px + pw / 2, py + ph / 2, auraR
-        );
-        grad.addColorStop(0, ac + '0.6)');
-        grad.addColorStop(1, ac + '0)');
+        const aColors = ['','rgba(76,175,80,','rgba(255,152,0,','rgba(244,67,54,'];
+        const aC   = aColors[booster.level];
+        const pulse = booster.level === 3 ? 1 + 0.12 * Math.sin(Date.now()/120) : 1;
+        const aR   = pw * 1.4 * pulse;
+        const grad = ctx.createRadialGradient(px+pw/2, py+ph/2, pw*0.2, px+pw/2, py+ph/2, aR);
+        grad.addColorStop(0, aC+'0.65)');
+        grad.addColorStop(1, aC+'0)');
         ctx.fillStyle = grad;
         ctx.beginPath();
-        ctx.ellipse(px + pw / 2, py + ph / 2, auraR, auraR * 1.4, 0, 0, Math.PI * 2);
+        ctx.ellipse(px+pw/2, py+ph/2, aR, aR*1.4, 0, 0, Math.PI*2);
         ctx.fill();
+        // LV3: 불꽃 파티클
+        if (booster.level === 3 && Math.random() < 0.35) {
+            spawnParticles(
+                px + pw/2 + (Math.random()-0.5)*pw*0.6,
+                py + ph * 0.9,
+                1,
+                () => `hsl(${Math.random()*30+10|0},100%,65%)`,
+                { minSpd:1, maxSpd:3, gravBias:-2.5, decay:0.04, minR:2, maxR:4 }
+            );
+        }
     }
 
-    drawCar(px, py, pw, ph, '#0099ee', '#ffffaa', 'down');
+    drawCar(px, py, pw, ph, '#0099ee', '#ffffaa', 'down', player.tiltAngle);
 }
 
 function drawObstacles() {
     obstacles.forEach(obs => {
-        drawCar(obs.x, obs.y, obs.width, obs.height, obs.color, '#ff9900', 'up');
+        drawCar(obs.x, obs.y, obs.width, obs.height, obs.color, '#ff9900', 'up', obs.tilt);
+        // 밀쳐진 장애물 연기
+        if (obs.isPushed && Math.random() < 0.3) {
+            spawnParticles(
+                obs.x + obs.width/2, obs.y + obs.height/2,
+                1, () => 'rgba(180,180,180,0.6)',
+                { minSpd:0.5, maxSpd:2, decay:0.06, minR:2, maxR:4 }
+            );
+        }
     });
 }
 
-// Spinning star
 function drawStar(cx, cy, r, spikes, rot) {
     const inner = r * 0.45;
     ctx.beginPath();
     for (let i = 0; i < spikes * 2; i++) {
-        const angle = rot + (i * Math.PI) / spikes;
-        const dist  = i % 2 === 0 ? r : inner;
-        const x = cx + Math.cos(angle) * dist;
-        const y = cy + Math.sin(angle) * dist;
-        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        const a = rot + (i * Math.PI) / spikes;
+        const d = i%2===0 ? r : inner;
+        const x = cx + Math.cos(a)*d, y = cy + Math.sin(a)*d;
+        i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
     }
     ctx.closePath();
 }
 
 function drawItems() {
-    const now = Date.now();
+    const rot = Date.now() / 500;
     items.forEach(item => {
-        const cx  = item.x;
-        const cy  = item.y;
-        const r   = item.width / 2;
-        const rot = now / 500;
-
-        // Glow
-        const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 2.2);
-        glow.addColorStop(0, 'rgba(255,220,0,0.35)');
+        const cx = item.x, cy = item.y, r = item.width/2;
+        // 글로우
+        const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, r*2.4);
+        glow.addColorStop(0, 'rgba(255,220,0,.4)');
         glow.addColorStop(1, 'rgba(255,220,0,0)');
         ctx.fillStyle = glow;
-        ctx.beginPath();
-        ctx.arc(cx, cy, r * 2.2, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Star
-        drawStar(cx, cy, r, 5, rot - Math.PI / 2);
-        ctx.fillStyle   = '#FFD700';
-        ctx.fill();
-        ctx.strokeStyle = '#FFA500';
-        ctx.lineWidth   = 2;
-        ctx.stroke();
-
-        // Inner shine
-        drawStar(cx, cy, r * 0.55, 5, rot - Math.PI / 2 + 0.3);
-        ctx.fillStyle = 'rgba(255,255,200,0.55)';
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(cx, cy, r*2.4, 0, Math.PI*2); ctx.fill();
+        // 별
+        drawStar(cx, cy, r, 5, rot - Math.PI/2);
+        ctx.fillStyle = '#FFD700'; ctx.fill();
+        ctx.strokeStyle = '#FFA500'; ctx.lineWidth = 2; ctx.stroke();
+        drawStar(cx, cy, r*0.55, 5, rot - Math.PI/2 + 0.3);
+        ctx.fillStyle = 'rgba(255,255,200,.6)'; ctx.fill();
     });
 }
 
 function drawFloatTexts() {
     floatTexts.forEach(ft => {
-        ctx.globalAlpha = ft.alpha;
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, ft.alpha);
         ctx.fillStyle   = ft.color;
-        ctx.font        = 'bold 20px Arial';
+        ctx.font        = `bold ${ft.size * ft.scale}px Arial`;
         ctx.textAlign   = 'center';
+        // 텍스트 외곽선 (가독성)
+        ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+        ctx.lineWidth   = 3;
+        ctx.strokeText(ft.text, ft.x, ft.y);
         ctx.fillText(ft.text, ft.x, ft.y);
-        ctx.globalAlpha = 1;
+        ctx.restore();
     });
     ctx.textAlign = 'left';
 }
 
-// ══════════════════════════════════════════════
-//  UI UPDATE
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
+//  HUD
+// ════════════════════════════════════════════════════════
 function updateHUD() {
     document.getElementById('score').textContent    = Math.floor(game.score);
     document.getElementById('distance').textContent = Math.floor(game.distance);
     document.getElementById('speed').textContent    = Math.floor(player.speed * 12);
     document.getElementById('bestScore').textContent = game.bestScore;
+    document.getElementById('nearCount').textContent = game.perfectCount;
 
     const bi = document.getElementById('boosterInfo');
     bi.className = `booster-level-${booster.level}`;
     document.getElementById('boosterLevel').textContent = booster.level;
+    const pct    = booster.remainingTime / CFG.boosterDuration;
+    const filled = Math.round(pct * 8);
+    document.getElementById('boosterBar').textContent  = '█'.repeat(filled) + '░'.repeat(8-filled);
+    document.getElementById('boosterTime').textContent = (booster.remainingTime/1000).toFixed(1);
 
-    // Build bar
-    const pct     = booster.remainingTime / CFG.boosterDuration;
-    const filled  = Math.round(pct * 8);
-    const bar     = '█'.repeat(filled) + '░'.repeat(8 - filled);
-    document.getElementById('boosterBar').textContent  = bar;
-    document.getElementById('boosterTime').textContent = (booster.remainingTime / 1000).toFixed(1);
+    // 스텝 쿨타임 바
+    const cd   = Math.max(0, player.stepCooldown);
+    const pct2 = 1 - cd / CFG.stepCooldown;
+    document.getElementById('stepBarFill').style.width = (pct2 * 100) + '%';
+
+    // 드리프트 게이지
+    const dg = document.getElementById('driftGauge');
+    const df = document.getElementById('driftFill');
+    if (game.driftGauge > 0.05) {
+        dg.style.display = 'block';
+        df.style.width   = (game.driftGauge * 100) + '%';
+    } else {
+        dg.style.display = 'none';
+    }
 }
 
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
 //  GAME OVER / RESTART
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
 function triggerGameOver() {
-    game.isRunning = false;
-    game.isOver    = true;
-
-    // Best score
+    game.isRunning = false; game.isOver = true;
     const isNew = game.score > game.bestScore;
     if (isNew) {
         game.bestScore = Math.floor(game.score);
         localStorage.setItem('bestScore', game.bestScore);
     }
+    triggerShake(20, 500, 0.018);
+    flashScreen('rgba(255,0,0,1)', 120);
+    vibrate([100, 30, 80, 30, 150]);
 
-    document.getElementById('finalScore').textContent    = Math.floor(game.score);
-    document.getElementById('finalDistance').textContent = Math.floor(game.distance);
-    document.getElementById('finalCombo').textContent    = game.maxCombo;
-    document.getElementById('newBestBadge').style.display = isNew ? 'block' : 'none';
-    document.getElementById('gameOver').style.display    = 'block';
+    setTimeout(() => {
+        document.getElementById('finalScore').textContent    = Math.floor(game.score);
+        document.getElementById('finalDistance').textContent = Math.floor(game.distance);
+        document.getElementById('finalCombo').textContent    = game.maxCombo;
+        document.getElementById('finalPerfect').textContent  = game.perfectCount;
+        document.getElementById('newBestBadge').style.display = isNew ? 'block' : 'none';
+        document.getElementById('gameOver').style.display    = 'block';
+    }, 600);
 }
 
 function resetGame() {
-    game.score      = 0;
-    game.distance   = 0;
-    game.combo      = 0;
-    game.maxCombo   = 0;
-    game.diffBonus  = 0;
-    game.isRunning  = true;
-    game.isPaused   = false;
-    game.isOver     = false;
-    game.startTime  = Date.now();
-    game.lastDiffRamp = Date.now();
+    game.score=0; game.distance=0; game.combo=0; game.maxCombo=0;
+    game.nearMissCount=0; game.perfectCount=0; game.driftGauge=0;
+    game.diffBonus=0; game.isRunning=true; game.isPaused=false; game.isOver=false;
+    game.slowMo=false; game.timeScale=1.0; game.slowMoTimer=0;
+    game.startTime=Date.now(); game.lastDiffRamp=Date.now();
 
     player.reset();
     booster.reset();
-    obstacles.length    = 0;
-    items.length        = 0;
-    floatTexts.length   = 0;
-    lastObstacleSpawn   = 0;
-    lastItemSpawn       = 0;
-    touchActive         = false;
+    obstacles.length=0; items.length=0;
+    floatTexts.length=0; particles.length=0;
+    speedLines.length=0; skidStrips.length=0;
+    lastObstacleSpawn=0; lastItemSpawn=0;
+    speedLineTimer=0;
+    touchActive=false; touchVelBuf=[];
+    shake.timer=0; shake.x=0; shake.y=0; shake.rot=0;
 
-    document.getElementById('gameOver').style.display   = 'none';
+    document.getElementById('gameOver').style.display     = 'none';
     document.getElementById('pauseOverlay').style.display = 'none';
+    document.getElementById('flashOverlay').style.opacity = '0';
 }
 
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
 //  BUTTON HANDLERS
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
 document.getElementById('startBtn').addEventListener('click', () => {
     document.getElementById('startScreen').style.display = 'none';
     resetGame();
 });
-
 document.getElementById('restartBtn').addEventListener('click', resetGame);
-
 document.getElementById('homeBtn').addEventListener('click', () => {
-    game.isRunning = false;
-    game.isOver    = false;
-    document.getElementById('gameOver').style.display     = 'none';
-    document.getElementById('startScreen').style.display  = 'flex';
+    game.isRunning=false; game.isOver=false;
+    document.getElementById('gameOver').style.display    = 'none';
+    document.getElementById('startScreen').style.display = 'flex';
     document.getElementById('bestScoreDisplay').textContent = game.bestScore;
 });
-
 document.getElementById('pauseBtn').addEventListener('click', () => {
     if (!game.isRunning) return;
-    game.isPaused = true;
-    game.isRunning = false;
+    game.isPaused=true; game.isRunning=false;
     document.getElementById('pauseOverlay').style.display = 'flex';
 });
-
 document.getElementById('resumeBtn').addEventListener('click', () => {
     document.getElementById('pauseOverlay').style.display = 'none';
-    game.isPaused  = false;
-    game.isRunning = true;
-    lastTime = Date.now();
+    game.isPaused=false; game.isRunning=true; lastTime=Date.now();
 });
-
 document.getElementById('quitBtn').addEventListener('click', () => {
-    game.isRunning = false;
-    game.isPaused  = false;
+    game.isRunning=false; game.isPaused=false;
     document.getElementById('pauseOverlay').style.display = 'none';
     document.getElementById('startScreen').style.display  = 'flex';
     document.getElementById('bestScoreDisplay').textContent = game.bestScore;
 });
 
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
 //  MAIN LOOP
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
 let lastTime = Date.now();
 
 function gameLoop() {
     requestAnimationFrame(gameLoop);
 
-    const now  = Date.now();
-    const dt   = Math.min(now - lastTime, 50); // cap delta
-    lastTime   = now;
+    const now = Date.now();
+    const dt  = Math.min(now - lastTime, 50);
+    lastTime  = now;
 
-    // ── DRAW BACKGROUND always ──
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
     if (!game.isRunning) return;
 
     // ── UPDATE ──
+    updateSlowMo(dt);
+    updateShake(dt);
     updateDifficulty(now);
-    updatePlayer();
+    updatePlayer(dt);
     booster.update(dt);
-    updateObstacles(now);
+    updateObstacles(now, dt);
     updateItems(now);
     updateFloatTexts();
+    updateParticles(dt);
+    updateSpeedLines(dt, game.timeScale);
+    updateSkidStrips(game.timeScale);
 
-    // Update scroll
-    road.scrollY = (road.scrollY + player.speed * 0.9) % CFG.scrollSegmentH;
+    road.scrollY = (road.scrollY + player.speed * 0.9 * game.timeScale) % CFG.scrollSegmentH;
+    game.distance += player.speed * 0.08 * game.timeScale;
 
-    // Distance
-    game.distance += player.speed * 0.08;
+    // ── DRAW (shake + rotation) ──
+    ctx.save();
+    ctx.translate(canvas.width/2 + shake.x, canvas.height/2 + shake.y);
+    ctx.rotate(shake.rot);
+    ctx.translate(-canvas.width/2, -canvas.height/2);
 
-    // ── DRAW ──
     drawGrass();
     drawRoad();
+    drawSkidStrips();
+    drawSpeedLines();
     drawItems();
     drawObstacles();
     drawPlayer();
+    drawParticles();
     drawFloatTexts();
+
+    ctx.restore();
 
     // ── HUD ──
     updateHUD();
 }
 
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
 //  INIT
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
 resizeCanvas();
 document.getElementById('bestScoreDisplay').textContent = game.bestScore;
 gameLoop();

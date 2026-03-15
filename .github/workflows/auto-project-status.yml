@@ -1,0 +1,183 @@
+# ──────────────────────────────────────────────────────────────────────────
+# auto-project-status.yml
+#
+# 목적: Issue/PR 이벤트 발생 시 GitHub Project v2 아이템 Status를 자동 변경
+#
+# 트리거:
+#   - Issue가 열릴 때     → Status: "Todo" (Backlog)
+#   - Issue가 닫힐 때     → Status: "Done"
+#   - PR이 열릴 때        → Status: "In Progress"
+#   - PR이 머지될 때      → Status: "Done"
+#
+# 필수 Secret:
+#   GH_PROJECT_PAT : project + repo 권한이 있는 Classic PAT
+#                    (Settings > Secrets > Actions 에서 추가)
+#
+# 필수 Variable:
+#   PROJECT_NUMBER : GitHub Project의 번호 (URL의 숫자)
+#                    예: https://github.com/users/vibrissa83/projects/1  → 1
+#                    (Settings > Variables > Actions 에서 추가)
+# ──────────────────────────────────────────────────────────────────────────
+name: 🤖 Auto Project Status
+
+on:
+  issues:
+    types: [opened, closed, reopened]
+  pull_request:
+    types: [opened, closed, reopened]
+
+jobs:
+  update-project:
+    name: Update Project Item Status
+    runs-on: ubuntu-latest
+    # project PAT이 설정된 경우에만 실행
+    if: ${{ secrets.GH_PROJECT_PAT != '' }}
+
+    steps:
+      - name: Get Project & Item IDs
+        id: get-ids
+        uses: actions/github-script@v7
+        env:
+          GH_TOKEN: ${{ secrets.GH_PROJECT_PAT }}
+          PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
+        with:
+          github-token: ${{ secrets.GH_PROJECT_PAT }}
+          script: |
+            const owner       = context.repo.owner;
+            const projectNum  = parseInt(process.env.PROJECT_NUMBER || '1');
+            
+            // 1) contentId (issue or PR node_id)
+            const contentId = context.payload.issue?.node_id
+                           || context.payload.pull_request?.node_id;
+            if (!contentId) { core.setFailed('No content node_id'); return; }
+            
+            // 2) Project node_id
+            const projQuery = `
+              query($login: String!, $num: Int!) {
+                user(login: $login) {
+                  projectV2(number: $num) { id }
+                }
+              }`;
+            const projData = await github.graphql(projQuery, { login: owner, num: projectNum });
+            const projectId = projData.user.projectV2.id;
+            core.setOutput('project_id', projectId);
+            core.setOutput('content_id', contentId);
+
+      - name: Add Item to Project (if not exists)
+        id: add-item
+        uses: actions/github-script@v7
+        env:
+          GH_TOKEN: ${{ secrets.GH_PROJECT_PAT }}
+        with:
+          github-token: ${{ secrets.GH_PROJECT_PAT }}
+          script: |
+            const projectId = '${{ steps.get-ids.outputs.project_id }}';
+            const contentId = '${{ steps.get-ids.outputs.content_id }}';
+            
+            const addMutation = `
+              mutation($projectId: ID!, $contentId: ID!) {
+                addProjectV2ItemById(input: { projectId: $projectId, contentId: $contentId }) {
+                  item { id }
+                }
+              }`;
+            const result = await github.graphql(addMutation, { projectId, contentId });
+            core.setOutput('item_id', result.addProjectV2ItemById.item.id);
+
+      - name: Get Status Field & Option IDs
+        id: get-field
+        uses: actions/github-script@v7
+        env:
+          GH_TOKEN: ${{ secrets.GH_PROJECT_PAT }}
+        with:
+          github-token: ${{ secrets.GH_PROJECT_PAT }}
+          script: |
+            const projectId = '${{ steps.get-ids.outputs.project_id }}';
+            
+            const fieldQuery = `
+              query($id: ID!) {
+                node(id: $id) {
+                  ... on ProjectV2 {
+                    fields(first: 20) {
+                      nodes {
+                        ... on ProjectV2SingleSelectField {
+                          id name
+                          options { id name }
+                        }
+                      }
+                    }
+                  }
+                }
+              }`;
+            const fieldData = await github.graphql(fieldQuery, { id: projectId });
+            const fields = fieldData.node.fields.nodes;
+            const statusField = fields.find(f => f.name === 'Status');
+            if (!statusField) { core.setFailed('Status field not found'); return; }
+            
+            core.setOutput('status_field_id', statusField.id);
+            
+            // 옵션 매핑
+            const opts = {};
+            for (const opt of statusField.options) {
+              opts[opt.name.toLowerCase()] = opt.id;
+            }
+            core.setOutput('opts_json', JSON.stringify(opts));
+
+      - name: Determine Target Status
+        id: target-status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const eventName  = context.eventName;
+            const action     = context.payload.action;
+            const isMerged   = context.payload.pull_request?.merged === true;
+            
+            let status = 'todo';   // default
+            
+            if (eventName === 'issues') {
+              if (action === 'opened' || action === 'reopened') status = 'todo';
+              if (action === 'closed')                          status = 'done';
+            } else if (eventName === 'pull_request') {
+              if (action === 'opened' || action === 'reopened') status = 'in progress';
+              if (action === 'closed' && isMerged)             status = 'done';
+              if (action === 'closed' && !isMerged)            status = 'todo';
+            }
+            
+            core.setOutput('target', status);
+
+      - name: Update Project Item Status
+        uses: actions/github-script@v7
+        env:
+          GH_TOKEN: ${{ secrets.GH_PROJECT_PAT }}
+        with:
+          github-token: ${{ secrets.GH_PROJECT_PAT }}
+          script: |
+            const projectId    = '${{ steps.get-ids.outputs.project_id }}';
+            const itemId       = '${{ steps.add-item.outputs.item_id }}';
+            const fieldId      = '${{ steps.get-field.outputs.status_field_id }}';
+            const opts         = JSON.parse('${{ steps.get-field.outputs.opts_json }}');
+            const targetStatus = '${{ steps.target-status.outputs.target }}';
+            
+            // 가장 근접한 옵션 ID 찾기
+            const optId = opts[targetStatus]
+                       || opts[Object.keys(opts).find(k => k.includes(targetStatus.split(' ')[0])) || '']
+                       || Object.values(opts)[0];
+            
+            if (!optId) {
+              core.warning(`Status option '${targetStatus}' not found in project`);
+              return;
+            }
+            
+            const updateMutation = `
+              mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optId: String!) {
+                updateProjectV2ItemFieldValue(input: {
+                  projectId: $projectId,
+                  itemId: $itemId,
+                  fieldId: $fieldId,
+                  value: { singleSelectOptionId: $optId }
+                }) {
+                  projectV2Item { id }
+                }
+              }`;
+            await github.graphql(updateMutation, { projectId, itemId, fieldId, optId });
+            
+            core.info(`✅ Status updated to "${targetStatus}" (option: ${optId})`);
